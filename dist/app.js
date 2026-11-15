@@ -98,4 +98,4 @@ try {
   }
 } catch {}
 load();
-setInterval(() => { if (!document.hidden) load(); }, 60000);
+setInterval(() => { if (!document.hidden) load(); }, 15000);
