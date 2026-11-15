@@ -39,6 +39,10 @@ The `.openai/hosting.json` file records the earlier Sites preview identity; Verc
 
 QRs use the origin where they are generated. **Choose the final Vercel URL or a permanent custom domain before printing production crate labels.** Labels printed from the earlier Sites preview continue to point to that preview; moving the code does not rewrite printed labels. Query identifiers remain stable as statuses or row positions change, provided the full job identifier stays unchanged.
 
+## Batch label printing
+
+Open **Crate QR label → Add more moulds to print**, select moulds and copy counts, review the page preview, then choose **Print labels**. The A4 layout preserves the existing 65 mm QR size, places up to four labels per page with cut borders, and creates further pages automatically. Two labels use landscape; other quantities use portrait.
+
 ## Install and use offline
 
 - **Android / Chrome or Edge:** use **Install app** or the browser's install menu.
