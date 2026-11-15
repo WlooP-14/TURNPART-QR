@@ -74,7 +74,7 @@
     const print = $('batchPrint'); print.replaceChildren(...[...$('batchPreview').children].map(page => page.cloneNode(true)));
     document.body.classList.add('printing-batch');
     $('batchPageStyle').textContent = '@page { size: A4 ' + currentPlan.orientation + '; margin: 10mm; }';
-    window.print();
+    MouldPrint.print(currentPlan.pages.flat());
   });
   window.addEventListener('afterprint', () => {
     document.body.classList.remove('printing-batch'); $('batchPageStyle').textContent = '';

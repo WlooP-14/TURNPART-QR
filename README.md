@@ -43,6 +43,8 @@ QRs use the origin where they are generated. **Choose the final Vercel URL or a 
 
 Open **Crate QR label → Add more moulds to print**, select moulds and copy counts, review the page preview, then choose **Print labels**. The A4 layout preserves the existing 65 mm QR size, places up to four labels per page with cut borders, and creates further pages automatically. Two labels use landscape; other quantities use portrait.
 
+Print actions suggest a PDF filename containing the unique mould numbers and the print date in India, for example `Mould-QR_1423_1403_2026-11-15.pdf`. The browser uses the temporary print document title for its Save as PDF filename; the normal app title is restored after printing or cancellation. Very long batches abbreviate the remaining moulds as `plus-N` to keep the filename within common filesystem limits.
+
 ## Install and use offline
 
 - **Android / Chrome or Edge:** use **Install app** or the browser's install menu.
@@ -53,7 +55,7 @@ Visit online once to install the app shell and save a successful sheet fetch. Wh
 
 The live sheet is read on opening, on **Refresh**, when connectivity returns, and every 60 seconds while visible. Google may cache its feed, so changes can take a short time to appear. Fetched time means retrieval time, not the source edit time. A failed refresh keeps the old records visibly marked stale. Offline records are stored on the device; **Clear saved job data** removes the saved copy, and the next successful fetch saves a new one.
 
-The service worker precaches only this app's static files. It never intercepts or caches the external Google Sheet feed. New app versions offer **Update app**; clicking it activates the waiting version and reloads. Increment `CACHE` in `dist/sw.js` whenever a cached app-shell file changes.
+The service worker precaches only this app's static files. It never intercepts or caches the external Google Sheet feed. New app versions display an **Update available** popup with **Update now** and **Later**. Later leaves a visible bottom reminder. The app checks for updates while open and when brought back into view. Updating activates the waiting version and reloads. Increment `CACHE` in `dist/sw.js` whenever a cached app-shell file changes.
 
 ## Sheet mapping
 
