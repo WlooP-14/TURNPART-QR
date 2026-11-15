@@ -1,10 +1,10 @@
 'use strict';
 // Increment the version whenever an app-shell file changes.
 const CACHE_PREFIX = 'mould-crate-shell-';
-const CACHE = CACHE_PREFIX + 'v4';
+const CACHE = CACHE_PREFIX + 'v5';
 const SHELL = [
   '/', '/index.html', '/style.css', '/app.js', '/model.js', '/snapshot.js',
-  '/pwa.js', '/print.js', '/batch.js', '/batch-ui.js', '/qrcode.js', '/manifest.webmanifest',
+  '/pwa.js', '/job-status.js', '/job-status-ui.js', '/print.js', '/batch.js', '/batch-ui.js', '/qrcode.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png',
   '/icons/apple-touch-icon.png', '/icons/favicon.svg'
 ];

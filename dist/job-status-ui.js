@@ -1,0 +1,63 @@
+'use strict';
+(() => {
+  const modal = $('jobStatusDialog'), search = $('jobStatusSearch'), filter = $('jobStatusFilter');
+  const cacheKey = 'mould-crate:1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug:JobDispatched:names:v1';
+  let completed = [], fetchedAt = null, known = false, busy = false, request = 0;
+  function render() {
+    const entries = MouldStatus.combine(jobs, completed);
+    const query = search.value.toLowerCase(), selection = filter.value;
+    const filtered = entries.filter(entry => entry.code.toLowerCase().includes(query) && (selection === 'all' || entry.done === (selection === 'done')));
+    $('jobStatusList').replaceChildren();
+    for (const entry of filtered) {
+      const row = el('li', undefined, 'mould-status-row');
+      row.append(el('span', entry.code), el('span', entry.done ? 'Done' : 'Ongoing', 'badge ' + (entry.done ? 'green' : 'grey')));
+      $('jobStatusList').append(row);
+    }
+    if (!filtered.length) $('jobStatusList').append(el('li', !known && selection === 'done' ? (busy ? 'Loading completed moulds…' : 'Completed list unavailable.') : 'No matching moulds.', 'muted status-empty'));
+    $('jobStatusCount').textContent = filtered.length + (filtered.length === 1 ? ' mould' : ' moulds');
+  }
+  function fail(message) {
+    $('jobStatusNotice').textContent = message + (fetchedAt ? ' Showing the saved list from ' + time(fetchedAt) + '.' : ' Please try again when connected.');
+  }
+  function refresh() {
+    if (busy) return;
+    if (navigator.onLine === false) { fail('You are offline.'); render(); return; }
+    busy = true; $('refreshJobStatus').disabled = true;
+    $('jobStatusNotice').textContent = fetchedAt ? 'Refreshing saved list from ' + time(fetchedAt) + '…' : 'Checking completed moulds…';
+    render();
+    const callback = 'mouldDispatchedResponse' + (++request), script = document.createElement('script');
+    let done = false;
+    const finish = () => { done = true; clearTimeout(timeout); script.remove(); delete window[callback]; busy = false; $('refreshJobStatus').disabled = false; };
+    const failed = message => { if (done) return; finish(); fail(message); render(); };
+    window[callback] = data => {
+      if (done) return;
+      try {
+        if (data.status !== 'ok') throw Error('Could not load completed moulds.');
+        const next = MouldStatus.parseArchive(data.table);
+        completed = next; fetchedAt = new Date(); known = true;
+        try { localStorage.setItem(cacheKey, JSON.stringify({ codes: completed, fetchedAt: fetchedAt.toISOString() })); } catch {}
+        finish(); $('jobStatusNotice').textContent = 'Updated ' + time(fetchedAt); render();
+      } catch (error) { failed(error.message); }
+    };
+    script.onerror = () => failed('Could not refresh completed moulds.');
+    const timeout = setTimeout(() => failed('The completed-mould sheet took too long to respond.'), 20000);
+    script.src = 'https://docs.google.com/spreadsheets/d/1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug/gviz/tq?sheet=JobDispatched&headers=2&tqx=' + encodeURIComponent('out:json;responseHandler:' + callback) + '&_=' + Date.now();
+    document.head.append(script);
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(cacheKey));
+    const date = new Date(saved?.fetchedAt);
+    if (saved && Number.isFinite(date.getTime()) && date.getTime() <= Date.now() + 60000) {
+      completed = MouldStatus.codes(saved.codes); fetchedAt = date; known = true;
+    }
+  } catch {}
+  $('openJobStatus').addEventListener('click', () => {
+    filter.value = 'done'; search.value = ''; render(); modal.showModal(); refresh();
+  });
+  $('closeJobStatus').addEventListener('click', () => modal.close());
+  search.addEventListener('input', render); filter.addEventListener('change', render);
+  $('refreshJobStatus').addEventListener('click', refresh);
+  window.addEventListener('online', () => { if (modal.open) refresh(); });
+  // Keep the device-data clearing action consistent with the completed-name cache.
+  $('clearSaved').addEventListener('click', () => { try { localStorage.removeItem(cacheKey); } catch {} });
+})();

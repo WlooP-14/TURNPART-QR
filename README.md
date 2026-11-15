@@ -39,6 +39,12 @@ The `.openai/hosting.json` file records the earlier Sites preview identity; Verc
 
 QRs use the origin where they are generated. **Choose the final Vercel URL or a permanent custom domain before printing production crate labels.** Labels printed from the earlier Sites preview continue to point to that preview; moving the code does not rewrite printed labels. Query identifiers remain stable as statuses or row positions change, provided the full job identifier stays unchanged.
 
+## Mould status list
+
+Choose **Mould status** to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
+
+**Open Google Sheet** is visible in the header on desktop and mobile. Mobile search fields use a readable input size, and the directory scrolls horizontally within its own area.
+
 ## Batch label printing
 
 Open **Crate QR label → Add more moulds to print**, select moulds and copy counts, review the page preview, then choose **Print labels**. The A4 layout preserves the existing 65 mm QR size, places up to four labels per page with cut borders, and creates further pages automatically. Two labels use landscape; other quantities use portrait.
