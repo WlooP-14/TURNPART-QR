@@ -65,9 +65,9 @@ The service worker precaches only this app's static files. It never intercepts o
 
 ## Sheet mapping
 
-Job headers: B full identifier, C BOM date, S trial date. Part rows: D name, E quantity, F material, G 2D-ready checkbox, H dispatch date, I deadline, J/K turning vendor/status, L/M hardening vendor/status, N/O grinding vendor/status, P assembly readiness, Q remarks. Merged job fields are filled forward until the next header. Keep each part beneath its own job header. Duplicate identifiers or changed required headers produce an error instead of mixing jobs.
+Job headers: B full identifier, C BOM date, S trial date. Part rows: D name, E quantity, F material, G 2D-ready checkbox, H dispatch date, I deadline, J/K turning vendor/status, L/M hardening vendor/status, N/O grinding vendor/status, P assembly readiness. Merged job fields are filled forward until the next header. Keep each part beneath its own job header. Duplicate identifiers or changed required headers produce an error instead of mixing jobs.
 
-Mould remarks from merged cells are also shown below the table. Summary counts represent part entries, not summed quantities. In-process and to-plan counts can overlap across different stages. Assembly readiness uses the explicit sheet value. All data text is rendered with `textContent`.
+Summary counts represent part entries, not summed quantities. In-process and to-plan counts can overlap across different stages. Assembly readiness uses the explicit sheet value. All data text is rendered with `textContent`.
 
 ## Dependencies and assets
 
