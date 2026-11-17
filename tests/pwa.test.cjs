@@ -30,7 +30,7 @@ test('merged job groups and full QR identifiers survive an offline round trip', 
   assert.equal(saved.jobs[0].received, 'September 2026');
   assert.equal(saved.jobs[0].parts.length, 2);
   assert.equal(saved.jobs[1].parts[0].name, 'SPRUE BUSH');
-  assert.equal(saved.jobs[0].parts[0].drawing, true);
+  assert.equal(saved.jobs[0].parts[0].materialAcquired, true);
   assert.equal(saved.jobs[0].parts[0].vendors[0], 'SAI');
   assert(Model.isProcess(saved.jobs[0].parts[0]));
   assert(Model.isPlan(saved.jobs[0].parts[0]));

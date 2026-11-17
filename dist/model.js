@@ -22,7 +22,7 @@
     job={id,code,serial:norm(val(0)),name:tokens[0],customer:tokens.slice(1,-1).join(' '),received,bom:norm(val(2)),trial:norm(val(18)),dispatchReady:norm(val(20)),parts:[]};jobs.push(job);
    }
    if(!job||!norm(val(3)))continue;
-   job.parts.push({name:norm(val(3)),qty:norm(val(4)),material:norm(val(5)),drawing:cells[6]?.v===true||stage(val(6))==='TRUE',dispatch:norm(val(7)),due:norm(val(8)),vendors:[norm(val(9)),norm(val(11)),norm(val(13))],stages:[norm(val(10)),norm(val(12)),norm(val(14))],ready:norm(val(15))});
+   job.parts.push({name:norm(val(3)),qty:norm(val(4)),material:norm(val(5)),materialAcquired:cells[6]?.v===true||stage(val(6))==='TRUE',dispatch:norm(val(7)),due:norm(val(8)),vendors:[norm(val(9)),norm(val(11)),norm(val(13))],stages:[norm(val(10)),norm(val(12)),norm(val(14))],ready:norm(val(15))});
   }
   if(!jobs.length)throw Error('No mould records were found in Sheet5.');return jobs;
  }
