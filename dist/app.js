@@ -6,25 +6,60 @@ function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefine
 function notice(text,error=false){$('notice').replaceChildren();if(text)$('notice').append(el('p',text,error?'notice error':'notice'));}
 function badge(value){const s=M.stage(value);let cls='grey';if(s==='IN PROCESS')cls='yellow';else if(s==='DONE'||s==='YES')cls='green';else if(s==='NOT APPLICABLE')cls='blue';else if(['NO','DELAY','DELAYED'].includes(s))cls='red';else if(s&&s!=='TO PLAN')cls='neutral';return el('span',value||'—','badge '+cls);}
 function drawDirectory(){const q=$('jobSearch').value.toLowerCase(),list=$('jobs');list.replaceChildren();$('jobCount').textContent=jobs.length;for(const j of jobs.filter(j=>j.code.toLowerCase().includes(q))){const b=el('button',undefined,'job-item'+(j.id===selected?.id?' selected':''));b.setAttribute('aria-pressed',String(j.id===selected?.id));const top=el('span',undefined,'job-item-top');top.append(el('strong','Job '+j.name),el('small',j.customer));b.append(top,el('span',j.code,'job-code'),el('small',j.parts.length+' parts · '+j.received));b.addEventListener('click',()=>selectJob(j,true));list.append(b);}if(!list.children.length)list.append(el('p','No matching jobs.','muted'));}
-function selectJob(j,push=false){selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();}
+function selectJob(j,push=false){document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();}
+function drawHome() {
+  const query = $('homeSearch').value.toLowerCase(), list = $('homeJobs');
+  const visible = jobs.filter(job => job.code.toLowerCase().includes(query));
+  list.replaceChildren();
+  $('homeCount').textContent = jobs.length + ' moulds';
+  for (const job of visible) {
+    const progress = M.progress(job);
+    const row = el('button', undefined, 'home-job');
+    const identity = el('span', undefined, 'home-job-identity');
+    identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'));
+    const work = el('span', undefined, 'home-job-work');
+    const meter = el('progress'); meter.max = 100; meter.value = progress.percent;
+    meter.setAttribute('aria-label', 'Work completed for ' + job.code);
+    work.append(el('strong', progress.percent + '%'), meter);
+    row.append(identity, work, el('span', '→', 'home-job-arrow'));
+    row.addEventListener('click', () => selectJob(job, true));
+    list.append(row);
+  }
+  if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted home-empty'));
+}
+function showHome(push = false) {
+  if (push) { const url = new URL(location.href); url.searchParams.delete('job'); history.pushState({}, '', url); window.scrollTo({top:0,behavior:'auto'}); }
+  selected = null;
+  document.body.classList.add('home-view');
+  $('workspace').hidden = true; $('home').hidden = !jobs.length; $('loading').hidden = !!jobs.length;
+  $('backToHome').hidden = true;
+  drawDirectory(); drawHome();
+}
+function renderRoute() {
+  const wanted = new URL(location.href).searchParams.get('job');
+  if (!wanted) { showHome(); return; }
+  const job = jobs.find(job => job.id === M.key(wanted));
+  if (job) { selectJob(job); return; }
+  selected = null;
+  document.body.classList.add('home-view');
+  $('workspace').hidden = true; $('home').hidden = true; $('loading').hidden = false;
+  $('backToHome').hidden = false;
+  $('loading').querySelector('h1').textContent = 'Mould not found';
+  $('loading').querySelector('p').textContent = 'This QR identifier is not in the available records. Return to all moulds to choose another job.';
+  drawDirectory();
+}
+function setRefreshBusy(value) {
+  for (const id of ['refresh', 'homeRefresh']) { $(id).disabled = value; $(id).textContent = value ? 'Refreshing…' : '↻ Refresh'; }
+}
 function drawParts(){if(!selected)return;const q=$('partSearch').value.toLowerCase(),filter=$('statusFilter').value,pred={all:()=>true,process:M.isProcess,plan:M.isPlan,delay:M.isDelayed,ready:M.isReady}[filter];const rows=selected.parts.filter(p=>(p.name+' '+p.material+' '+p.vendors.join(' ')).toLowerCase().includes(q)&&pred(p));const body=$('parts');body.replaceChildren();for(const p of rows){const row=el('tr');row.append(el('th',p.name,'part-col'));row.firstChild.scope='row';row.append(el('td',p.qty||'—','qty'),el('td',p.material||'—'));const acquiredCell=el('td');const tick=el('span',p.materialAcquired?'✓':'—',p.materialAcquired?'material-acquired ready':'material-acquired');tick.setAttribute('aria-label',p.materialAcquired?'Material acquired':'Material not acquired');acquiredCell.append(tick);row.append(acquiredCell);for(let i=0;i<3;i++){row.append(el('td',p.vendors[i]||'—','vendor'));const c=el('td');c.append(badge(p.stages[i]));row.append(c);}const r=el('td');r.append(badge(p.ready));row.append(r,el('td',p.dispatch||'—'),el('td',p.due||'—'));body.append(row);}if(!rows.length){const row=el('tr'),c=el('td','No parts match these filters.','empty');c.colSpan=13;row.append(c);body.append(row);}$('visibleCount').textContent=rows.length+' of '+selected.parts.length+' parts';}
-function fail(message){busy=false;$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!jobs.length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
+function fail(message){busy=false;setRefreshBusy(false);$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';$('homeSyncText').textContent=$('syncText').textContent;notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!jobs.length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
 function applyData(nextJobs, when, saved = false) {
   jobs = nextJobs;
   fetched = when;
   $('syncText').textContent = (saved ? 'Saved copy · ' : 'Fetched ') + time(fetched);
   $('syncDot').classList.toggle('offline', saved);
-  const wanted = new URL(location.href).searchParams.get('job');
-  const job = wanted ? jobs.find(j => j.id === M.key(wanted)) : jobs[0];
-  if (job) selectJob(job);
-  else {
-    selected = null;
-    $('workspace').hidden = true;
-    $('loading').hidden = false;
-    $('loading').querySelector('h1').textContent = 'Mould not found';
-    $('loading').querySelector('p').textContent = 'This QR identifier is not in the available records. Choose a mould from the directory or check its job/customer/received code.';
-    drawDirectory();
-  }
+  $('homeSyncText').textContent = $('syncText').textContent;
+  renderRoute();
 }
 function load() {
   if (busy) return;
@@ -33,8 +68,7 @@ function load() {
     return;
   }
   busy = true;
-  $('refresh').disabled = true;
-  $('refresh').textContent = 'Refreshing…';
+  setRefreshBusy(true);
   const callback = 'mouldSheetResponse' + (++request);
   if (activeScript) activeScript.remove();
   let done = false;
@@ -55,8 +89,7 @@ function load() {
       try { saved = MouldSnapshot.save(localStorage, data.table, when); } catch {}
       notice(saved ? '' : 'Live data loaded. Saving for offline use is unavailable on this device.');
       busy = false;
-      $('refresh').disabled = false;
-      $('refresh').textContent = '↻ Refresh';
+      setRefreshBusy(false);
     } catch (error) { fail(error.message); }
   };
   activeScript = document.createElement('script');
@@ -78,7 +111,11 @@ function load() {
 function mouldUrl(){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('job',selected.id);return u.href;}
 $('jobSearch').addEventListener('input',drawDirectory);$('partSearch').addEventListener('input',drawParts);$('statusFilter').addEventListener('change',drawParts);$('refresh').addEventListener('click',load);
 $('qrButton').addEventListener('click',()=>{const url=mouldUrl(),qr=qrcode(0,'M');qr.addData(url);qr.make();$('qrImage').innerHTML=qr.createSvgTag({cellSize:6,margin:24,scalable:true,alt:'QR for '+selected.code,title:'Scan for current mould status'});$('qrJob').textContent=selected.code;$('qrUrl').textContent=url;$('copyStatus').textContent='';$('qrDialog').showModal();});$('closeQr').addEventListener('click',()=>$('qrDialog').close());$('printQr').addEventListener('click',()=>MouldPrint.print([selected]));$('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mouldUrl());$('copyStatus').textContent='Mould link copied.';}catch{$('copyStatus').textContent='Copy the link shown below the QR code.';}});
-window.addEventListener('popstate',()=>{const wanted=new URL(location.href).searchParams.get('job'),j=wanted?jobs.find(j=>j.id===M.key(wanted)):jobs[0];if(j)selectJob(j);else{selected=null;$('workspace').hidden=true;notice('Mould not found. Choose a job from the directory.',true);drawDirectory();}});
+window.addEventListener('popstate', renderRoute);
+$('backToHome').addEventListener('click', () => showHome(true));
+$('homeSearch').addEventListener('input', drawHome);
+$('homeRefresh').addEventListener('click', load);
+$('homeJobStatus').addEventListener('click', () => $('openJobStatus').click());
 $('clearSaved').addEventListener('click', () => {
   let cleared = false;
   try { cleared = MouldSnapshot.clear(localStorage); } catch {}
@@ -88,6 +125,7 @@ window.addEventListener('online', load);
 window.addEventListener('offline', () => {
   $('syncDot').classList.add('offline');
   $('syncText').textContent = fetched ? 'Offline · saved ' + time(fetched) : 'Offline';
+  $('homeSyncText').textContent = $('syncText').textContent;
   notice('You are offline.' + (fetched ? ' Showing data fetched ' + time(fetched) + '; statuses may have changed.' : ' Visit online once to save statuses for this device.'), true);
 });
 try {

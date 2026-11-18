@@ -7,6 +7,18 @@
  const isPlan=p=>p.stages.some(s=>stage(s)==='TO PLAN');
  const isDelayed=p=>p.stages.some(s=>['DELAY','DELAYED'].includes(stage(s)));
  const isReady=p=>['YES','TRUE'].includes(stage(p.ready));
+ function progress(job){
+  let completed=0,total=0;
+  for(const part of job.parts){
+   for(const value of part.stages){
+    const state=stage(value);
+    if(state==='NOT APPLICABLE')continue;
+    total++;if(state==='DONE')completed++;
+   }
+  }
+  const percent=total?Math.floor(completed*100/total):(job.parts.length&&job.parts.every(isReady)?100:0);
+  return {completed,total,percent};
+ }
  function parse(table){
   if(!table||!Array.isArray(table.rows))throw Error('The sheet returned an unexpected format.');
   const labels=(table.cols||[]).map(c=>stage(c.label));
@@ -26,6 +38,6 @@
   }
   if(!jobs.length)throw Error('No mould records were found in Sheet5.');return jobs;
  }
- const api={norm,key,stage,isProcess,isPlan,isDelayed,isReady,parse};root.MouldModel=api;
+ const api={norm,key,stage,isProcess,isPlan,isDelayed,isReady,progress,parse};root.MouldModel=api;
  if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);
