@@ -115,7 +115,6 @@ window.addEventListener('popstate', renderRoute);
 $('backToHome').addEventListener('click', () => showHome(true));
 $('homeSearch').addEventListener('input', drawHome);
 $('homeRefresh').addEventListener('click', load);
-$('homeJobStatus').addEventListener('click', () => $('openJobStatus').click());
 $('clearSaved').addEventListener('click', () => {
   let cleared = false;
   try { cleared = MouldSnapshot.clear(localStorage); } catch {}

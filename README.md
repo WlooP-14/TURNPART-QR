@@ -47,7 +47,7 @@ Progress counts each applicable turning, hardening, and grinding stage once per 
 
 ## Mould status list
 
-Choose **Mould status** to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
+Choose **Mould status** next to **Open Google Sheet** in the header to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
 
 **Open Google Sheet** is visible in the header on desktop and mobile. Mobile search fields use a readable input size, and the directory scrolls vertically within its own area.
 
