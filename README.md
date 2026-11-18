@@ -41,7 +41,7 @@ QRs use the origin where they are generated. **Choose the final Vercel URL or a 
 
 ## Home overview and progress
 
-The root URL opens a searchable vertical list of moulds, each with a work-completion percentage. Selecting a mould opens its existing part details; **All moulds** returns to the overview. Existing `?job=...` QR links still open the matching details directly. Browser history and automatic refresh preserve the current view. The mould directory also stacks vertically on mobile.
+The root URL opens a searchable vertical list of moulds, each with a work-completion percentage. Selecting a mould opens its existing part details; **All moulds** returns to the overview. Existing `?job=...` QR links still open the matching details directly. Browser history and automatic refresh preserve the current view. On the details screen, the mould directory is a searchable dropdown, collapsed after selection. Its summary shows the selected mould and percentage; each expanded entry includes the same percentage and a progress bar. The dropdown stays open during automatic sheet refreshes and its list scrolls vertically on mobile.
 
 Progress counts each applicable turning, hardening, and grinding stage once per part entry: `DONE stages / applicable stages × 100`, rounded down. `NOT APPLICABLE` stages are excluded. In-process, to-plan, delayed, blank, and unknown stages are unfinished. No partial credit or quantity/time weighting is inferred. A job with no applicable stages shows 100% only if every part is explicitly assembly-ready; otherwise it shows 0%. This machining progress is separate from the dispatched/completed mould list.
 

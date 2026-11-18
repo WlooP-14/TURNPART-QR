@@ -48,7 +48,7 @@ function app(url = 'https://tracker.example/') {
   sandbox.fixtureJobs = jobs;
   const refresh = () => vm.runInContext('applyData(fixtureJobs, new Date())', sandbox);
   refresh();
-  return { get, location, events, refresh, document: sandbox.document };
+  return { get, location, events, refresh, jobs, document: sandbox.document };
 }
 
 test('the root opens the mould list, refresh stays home, and choosing a mould opens details', () => {
@@ -78,4 +78,25 @@ test('an unknown QR never silently opens another mould and provides a route home
   assert.equal(ui.get('loading').querySelector('h1').textContent, 'Mould not found');
   assert.equal(ui.get('backToHome').hidden, false);
   ui.get('backToHome').click(); assert.equal(ui.get('home').hidden, false);
+});
+
+test('directory shows percentages, closes on selection, and stays open during a sheet refresh', () => {
+  const ui = app('https://tracker.example/?job=1423-TNRV-0926');
+  ui.jobs.push({ id: '1403-BAEM-0826', code: '1403 BAEM 0826', name: '1403', customer: 'BAEM', parts: [
+    { name: 'GUIDE PIN', stages: ['DONE', 'TO PLAN', 'NOT APPLICABLE'], vendors: ['', '', ''], ready: 'NO' }
+  ] });
+  ui.refresh();
+  assert.equal(ui.get('mouldDropdown').open, false);
+  const item = ui.get('jobs').children[1];
+  assert.equal(item.children.at(-1).children[1].textContent, '50%');
+  ui.get('mouldDropdown').open = true;
+  item.click();
+  assert.equal(ui.get('mouldDropdown').open, false);
+  assert.equal(ui.get('selectedMouldLabel').textContent, '1403 BAEM 0826');
+  assert.equal(ui.get('selectedMouldProgress').textContent, '50%');
+  ui.get('mouldDropdown').open = true;
+  ui.get('jobSearch').value = '1403';
+  ui.refresh();
+  assert.equal(ui.get('mouldDropdown').open, true);
+  assert.equal(ui.get('jobs').children.length, 1);
 });
