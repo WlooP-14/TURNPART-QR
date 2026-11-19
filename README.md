@@ -45,6 +45,10 @@ The root URL opens a searchable vertical list of moulds, each with a work-comple
 
 Progress counts each applicable turning, hardening, and grinding stage once per part entry: `DONE stages / applicable stages × 100`, rounded down. `NOT APPLICABLE` stages are excluded. In-process, to-plan, delayed, blank, and unknown stages are unfinished. No partial credit or quantity/time weighting is inferred. A job with no applicable stages shows 100% only if every part is explicitly assembly-ready; otherwise it shows 0%. This machining progress is separate from the dispatched/completed mould list.
 
+## Interface motion
+
+Mould navigation uses short fade/slide entrances; interactive controls have hover/press feedback; dropdowns and dialogs transition open/closed on supporting browsers. Progress bars ease from their previous value when status percentages change. Automatic sheet refreshes do not replay page entrance animations. System reduced-motion preferences disable these effects; print output has transitions disabled. Browsers without the animation APIs retain immediate, functional navigation.
+
 ## Mould status list
 
 Choose **Mould status** next to **Open Google Sheet** in the header to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.

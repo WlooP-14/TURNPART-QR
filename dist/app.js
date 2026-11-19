@@ -5,8 +5,8 @@ const time=d=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-di
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function notice(text,error=false){$('notice').replaceChildren();if(text)$('notice').append(el('p',text,error?'notice error':'notice'));}
 function badge(value){const s=M.stage(value);let cls='grey';if(s==='IN PROCESS')cls='yellow';else if(s==='DONE'||s==='YES')cls='green';else if(s==='NOT APPLICABLE')cls='blue';else if(['NO','DELAY','DELAYED'].includes(s))cls='red';else if(s&&s!=='TO PLAN')cls='neutral';return el('span',value||'—','badge '+cls);}
-function drawDirectory(){const q=$('jobSearch').value.toLowerCase(),list=$('jobs');list.replaceChildren();$('jobCount').textContent=jobs.length;for(const j of jobs.filter(j=>j.code.toLowerCase().includes(q))){const b=el('button',undefined,'job-item'+(j.id===selected?.id?' selected':''));b.setAttribute('aria-pressed',String(j.id===selected?.id));const top=el('span',undefined,'job-item-top');top.append(el('strong','Job '+j.name),el('small',j.customer));b.append(top,el('span',j.code,'job-code'),el('small',j.parts.length+' parts · '+j.received));const progress=M.progress(j);const work=el('span',undefined,'directory-progress');const meter=el('progress');meter.max=100;meter.value=progress.percent;meter.setAttribute('aria-label','Work completed for '+j.code);work.append(meter,el('strong',progress.percent+'%'));b.append(work);b.addEventListener('click',()=>selectJob(j,true));list.append(b);}if(!list.children.length)list.append(el('p','No matching jobs.','muted'));}
-function selectJob(j,push=false){if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();}
+function drawDirectory(){const q=$('jobSearch').value.toLowerCase(),list=$('jobs');list.replaceChildren();$('jobCount').textContent=jobs.length;for(const j of jobs.filter(j=>j.code.toLowerCase().includes(q))){const b=el('button',undefined,'job-item'+(j.id===selected?.id?' selected':''));b.setAttribute('aria-pressed',String(j.id===selected?.id));const top=el('span',undefined,'job-item-top');top.append(el('strong','Job '+j.name),el('small',j.customer));b.append(top,el('span',j.code,'job-code'),el('small',j.parts.length+' parts · '+j.received));const progress=M.progress(j);const work=el('span',undefined,'directory-progress');const meter=el('progress');meter.max=100;MouldMotion.progress(meter,progress.percent,'directory:'+j.id);meter.setAttribute('aria-label','Work completed for '+j.code);work.append(meter,el('strong',progress.percent+'%'));b.append(work);b.addEventListener('click',()=>selectJob(j,true));list.append(b);}if(!list.children.length)list.append(el('p','No matching jobs.','muted'));}
+function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();if(animateView)MouldMotion.enter($('workspace'));}
 function drawHome() {
   const query = $('homeSearch').value.toLowerCase(), list = $('homeJobs');
   const visible = jobs.filter(job => job.code.toLowerCase().includes(query));
@@ -18,7 +18,7 @@ function drawHome() {
     const identity = el('span', undefined, 'home-job-identity');
     identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'));
     const work = el('span', undefined, 'home-job-work');
-    const meter = el('progress'); meter.max = 100; meter.value = progress.percent;
+    const meter = el('progress'); meter.max = 100; MouldMotion.progress(meter, progress.percent, 'home:' + job.id);
     meter.setAttribute('aria-label', 'Work completed for ' + job.code);
     work.append(el('strong', progress.percent + '%'), meter);
     row.append(identity, work, el('span', '→', 'home-job-arrow'));
@@ -28,12 +28,14 @@ function drawHome() {
   if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted home-empty'));
 }
 function showHome(push = false) {
+  const animateView = $('home').hidden;
   if (push) { const url = new URL(location.href); url.searchParams.delete('job'); history.pushState({}, '', url); window.scrollTo({top:0,behavior:'auto'}); }
   selected = null;
   document.body.classList.add('home-view');
   $('workspace').hidden = true; $('home').hidden = !jobs.length; $('loading').hidden = !!jobs.length;
   $('backToHome').hidden = true;
   drawDirectory(); drawHome();
+  if (animateView) MouldMotion.enter($('home'));
 }
 function renderRoute() {
   const wanted = new URL(location.href).searchParams.get('job');
@@ -109,7 +111,7 @@ function load() {
   document.head.append(activeScript);
 }
 function mouldUrl(){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('job',selected.id);return u.href;}
-$('jobSearch').addEventListener('input',drawDirectory);$('partSearch').addEventListener('input',drawParts);$('statusFilter').addEventListener('change',drawParts);$('refresh').addEventListener('click',load);
+$('jobSearch').addEventListener('input',drawDirectory);$('partSearch').addEventListener('input',()=>{drawParts();MouldMotion.enter($('parts'));});$('statusFilter').addEventListener('change',()=>{drawParts();MouldMotion.enter($('parts'));});$('refresh').addEventListener('click',load);
 $('qrButton').addEventListener('click',()=>{const url=mouldUrl(),qr=qrcode(0,'M');qr.addData(url);qr.make();$('qrImage').innerHTML=qr.createSvgTag({cellSize:6,margin:24,scalable:true,alt:'QR for '+selected.code,title:'Scan for current mould status'});$('qrJob').textContent=selected.code;$('qrUrl').textContent=url;$('copyStatus').textContent='';$('qrDialog').showModal();});$('closeQr').addEventListener('click',()=>$('qrDialog').close());$('printQr').addEventListener('click',()=>MouldPrint.print([selected]));$('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mouldUrl());$('copyStatus').textContent='Mould link copied.';}catch{$('copyStatus').textContent='Copy the link shown below the QR code.';}});
 window.addEventListener('popstate', renderRoute);
 $('backToHome').addEventListener('click', () => showHome(true));

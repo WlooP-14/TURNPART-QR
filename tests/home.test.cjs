@@ -32,7 +32,7 @@ function app(url = 'https://tracker.example/') {
     querySelector(tag) { if (tag === 'button') return null; this.tags ||= {}; return this.tags[tag] ||= new Node(); }
     click() { this.events.click?.(); }
   }
-  const nodes = new Map(), events = {};
+  const nodes = new Map(), events = {}, animations = [];
   const get = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
   get('statusFilter').value = 'all';
   const location = { href: url };
@@ -40,7 +40,7 @@ function app(url = 'https://tracker.example/') {
   const sandbox = {
     MouldModel: Model, document: { getElementById: get, createElement: () => new Node(), head: new Node(), body: new Node() },
     window, location, URL, navigator: { onLine: true }, history: { pushState(_, __, next) { location.href = String(next); } },
-    MouldSnapshot: { read: () => null }, localStorage: {}, setTimeout: () => 1, clearTimeout() {}, setInterval() {}
+    MouldSnapshot: { read: () => null }, MouldMotion: { enter(node) { animations.push(node); }, progress(node, value) { node.value = value; } }, localStorage: {}, setTimeout: () => 1, clearTimeout() {}, setInterval() {}
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(require.resolve('../dist/app.js'), 'utf8'), sandbox);
@@ -48,7 +48,7 @@ function app(url = 'https://tracker.example/') {
   sandbox.fixtureJobs = jobs;
   const refresh = () => vm.runInContext('applyData(fixtureJobs, new Date())', sandbox);
   refresh();
-  return { get, location, events, refresh, jobs, document: sandbox.document };
+  return { get, location, events, refresh, jobs, animations, document: sandbox.document };
 }
 
 test('the root opens the mould list, refresh stays home, and choosing a mould opens details', () => {
@@ -99,4 +99,15 @@ test('directory shows percentages, closes on selection, and stays open during a 
   ui.refresh();
   assert.equal(ui.get('mouldDropdown').open, true);
   assert.equal(ui.get('jobs').children.length, 1);
+});
+
+
+test('automatic refreshes do not replay view transitions', () => {
+  const ui = app();
+  const initial = ui.animations.length;
+  ui.refresh(); assert.equal(ui.animations.length, initial);
+  ui.get('homeJobs').children[0].click();
+  assert.equal(ui.animations.length, initial + 1);
+  ui.refresh(); assert.equal(ui.animations.length, initial + 1);
+  ui.get('backToHome').click(); assert.equal(ui.animations.length, initial + 2);
 });
