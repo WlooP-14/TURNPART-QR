@@ -1,18 +1,58 @@
 'use strict';
 const M=MouldModel,$=id=>document.getElementById(id);
 let jobs=[],selected=null,fetched=null,activeScript=null,timer=null,request=0,busy=false;
+let archiveState={codes:[],known:false,busy:false,error:'',fetchedAt:null};
 const time=d=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)+' IST';
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function notice(text,error=false){$('notice').replaceChildren();if(text)$('notice').append(el('p',text,error?'notice error':'notice'));}
 function badge(value){const s=M.stage(value);let cls='grey';if(s==='IN PROCESS')cls='yellow';else if(s==='DONE'||s==='YES')cls='green';else if(s==='NOT APPLICABLE')cls='blue';else if(['NO','DELAY','DELAYED'].includes(s))cls='red';else if(s&&s!=='TO PLAN')cls='neutral';return el('span',value||'—','badge '+cls);}
-function drawDirectory(){const q=$('jobSearch').value.toLowerCase(),list=$('jobs');list.replaceChildren();$('jobCount').textContent=jobs.length;for(const j of jobs.filter(j=>j.code.toLowerCase().includes(q))){const b=el('button',undefined,'job-item'+(j.id===selected?.id?' selected':''));b.setAttribute('aria-pressed',String(j.id===selected?.id));const top=el('span',undefined,'job-item-top');top.append(el('strong','Job '+j.name),el('small',j.customer));b.append(top,el('span',j.code,'job-code'),el('small',j.parts.length+' parts · '+j.received));const progress=M.progress(j);const work=el('span',undefined,'directory-progress');const meter=el('progress');meter.max=100;MouldMotion.progress(meter,progress.percent,'directory:'+j.id);meter.setAttribute('aria-label','Work completed for '+j.code);work.append(meter,el('strong',progress.percent+'%'));b.append(work);b.addEventListener('click',()=>selectJob(j,true));list.append(b);}if(!list.children.length)list.append(el('p','No matching jobs.','muted'));}
+function archiveMessage() {
+  if (archiveState.busy) return 'Checking finished jobs…';
+  if (archiveState.error) return archiveState.error + (archiveState.fetchedAt ? ' Saved list from ' + time(archiveState.fetchedAt) + '.' : '');
+  return '';
+}
+function setArchiveState(state) {
+  archiveState = state;
+  drawDirectory();
+  if (!$('home').hidden) drawHome();
+}
+function finishedLabel(job, className) {
+  const row = el('article', undefined, className + ' finished-job');
+  const identity = el('span', undefined, 'home-job-identity');
+  identity.append(el('strong', 'Job ' + job.name), el('span', job.code));
+  row.append(identity, el('span', 'Job finished', 'badge green finished-description'));
+  return row;
+}
+function drawDirectory() {
+  const query = $('jobSearch').value, list = $('jobs');
+  const visible = M.searchJobs(jobs, archiveState.codes, query);
+  list.replaceChildren();
+  $('jobCount').textContent = M.searchJobs(jobs, archiveState.codes, '').length;
+  $('directoryArchiveNotice').textContent = query.trim() ? archiveMessage() : '';
+  for (const job of visible) {
+    if (job.finished) { list.append(finishedLabel(job, 'job-item')); continue; }
+    const button = el('button', undefined, 'job-item' + (job.id === selected?.id ? ' selected' : ''));
+    button.setAttribute('aria-pressed', String(job.id === selected?.id));
+    const top = el('span', undefined, 'job-item-top');
+    top.append(el('strong', 'Job ' + job.name), el('small', job.customer));
+    button.append(top, el('span', job.code, 'job-code'), el('small', job.parts.length + ' parts · ' + job.received));
+    const progress = M.progress(job), work = el('span', undefined, 'directory-progress'), meter = el('progress');
+    meter.max = 100; MouldMotion.progress(meter, progress.percent, 'directory:' + job.id);
+    meter.setAttribute('aria-label', 'Work completed for ' + job.code);
+    work.append(meter, el('strong', progress.percent + '%')); button.append(work);
+    button.addEventListener('click', () => selectJob(job, true)); list.append(button);
+  }
+  if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted'));
+}
 function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();if(animateView)MouldMotion.enter($('workspace'));}
 function drawHome() {
-  const query = $('homeSearch').value.toLowerCase(), list = $('homeJobs');
-  const visible = jobs.filter(job => job.code.toLowerCase().includes(query));
+  const query = $('homeSearch').value, list = $('homeJobs');
+  const visible = M.searchJobs(jobs, archiveState.codes, query);
   list.replaceChildren();
-  $('homeCount').textContent = jobs.length + ' moulds';
+  $('homeCount').textContent = (query.trim() ? visible.length + ' matching moulds' : visible.length + ' moulds');
+  $('homeArchiveNotice').textContent = query.trim() ? archiveMessage() : '';
   for (const job of visible) {
+    if (job.finished) { list.append(finishedLabel(job, 'home-job')); continue; }
     const progress = M.progress(job);
     const row = el('button', undefined, 'home-job');
     const identity = el('span', undefined, 'home-job-identity');

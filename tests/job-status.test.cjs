@@ -30,3 +30,9 @@ test('changed archive columns, duplicate names, and corrupt saved lists are reje
   for (const value of [null, {}, [null], ['']]) assert.throws(() => Status.codes(value));
   assert.deepEqual(Status.codes([]), []);
 });
+
+
+test('archive queries can return only the job-name column without history data', () => {
+  const table = { cols: [{ id: 'B', label: 'CUSTOMER CODE' }], rows: [{ c: [{ v: '1407 FBMS 0826' }] }, { c: [null] }] };
+  assert.deepEqual(Status.parseArchive(table), ['1407 FBMS 0826']);
+});

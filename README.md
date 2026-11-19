@@ -45,6 +45,12 @@ The root URL opens a searchable vertical list of moulds, each with a work-comple
 
 Progress counts each applicable turning, hardening, and grinding stage once per part entry: `DONE stages / applicable stages × 100`, rounded down. `NOT APPLICABLE` stages are excluded. In-process, to-plan, delayed, blank, and unknown stages are unfinished. No partial credit or quantity/time weighting is inferred. A job with no applicable stages shows 100% only if every part is explicitly assembly-ready; otherwise it shows 0%. This machining progress is separate from the dispatched/completed mould list.
 
+## Finished moulds in search
+
+The default overview and dropdown show ongoing moulds only. A nonempty search includes matching names from `JobDispatched`, displayed as noninteractive **Job finished** summaries without part data or history. Clearing the query hides those results. Archived identifiers take precedence if the same job temporarily occurs in both tabs.
+
+The archive request selects column B only; no archived part rows are retrieved for display. Search refreshes the completed-name list independently, reuses the timestamped device cache, and reports unavailable/stale results without blocking ongoing jobs. The existing Mould status popup shares this source.
+
 ## Interface motion
 
 Mould navigation uses short fade/slide entrances; interactive controls have hover/press feedback; dropdowns and dialogs transition open/closed on supporting browsers. Progress bars ease from their previous value when status percentages change. Automatic sheet refreshes do not replay page entrance animations. System reduced-motion preferences disable these effects; print output has transitions disabled. Browsers without the animation APIs retain immediate, functional navigation.

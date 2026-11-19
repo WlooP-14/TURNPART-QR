@@ -2,7 +2,8 @@
 (() => {
   const modal = $('jobStatusDialog'), search = $('jobStatusSearch'), filter = $('jobStatusFilter');
   const cacheKey = 'mould-crate:1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug:JobDispatched:names:v1';
-  let completed = [], fetchedAt = null, known = false, busy = false, request = 0;
+  let completed = [], fetchedAt = null, known = false, busy = false, request = 0, error = '', lastAttempt = 0;
+  function publish() { setArchiveState({ codes: completed, fetchedAt, known, busy, error }); }
   function render() {
     const entries = MouldStatus.combine(jobs, completed);
     const query = search.value.toLowerCase(), selection = filter.value;
@@ -17,12 +18,13 @@
     $('jobStatusCount').textContent = filtered.length + (filtered.length === 1 ? ' mould' : ' moulds');
   }
   function fail(message) {
+    error = message; publish();
     $('jobStatusNotice').textContent = message + (fetchedAt ? ' Showing the saved list from ' + time(fetchedAt) + '.' : ' Please try again when connected.');
   }
   function refresh() {
     if (busy) return;
     if (navigator.onLine === false) { fail('You are offline.'); render(); return; }
-    busy = true; $('refreshJobStatus').disabled = true;
+    busy = true; error = ''; lastAttempt = Date.now(); publish(); $('refreshJobStatus').disabled = true;
     $('jobStatusNotice').textContent = fetchedAt ? 'Refreshing saved list from ' + time(fetchedAt) + '…' : 'Checking completed moulds…';
     render();
     const callback = 'mouldDispatchedResponse' + (++request), script = document.createElement('script');
@@ -36,12 +38,12 @@
         const next = MouldStatus.parseArchive(data.table);
         completed = next; fetchedAt = new Date(); known = true;
         try { localStorage.setItem(cacheKey, JSON.stringify({ codes: completed, fetchedAt: fetchedAt.toISOString() })); } catch {}
-        finish(); $('jobStatusNotice').textContent = 'Updated ' + time(fetchedAt); render();
+        finish(); publish(); $('jobStatusNotice').textContent = 'Updated ' + time(fetchedAt); render();
       } catch (error) { failed(error.message); }
     };
     script.onerror = () => failed('Could not refresh completed moulds.');
     const timeout = setTimeout(() => failed('The completed-mould sheet took too long to respond.'), 20000);
-    script.src = 'https://docs.google.com/spreadsheets/d/1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug/gviz/tq?sheet=JobDispatched&headers=2&tqx=' + encodeURIComponent('out:json;responseHandler:' + callback) + '&_=' + Date.now();
+    script.src = 'https://docs.google.com/spreadsheets/d/1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug/gviz/tq?sheet=JobDispatched&headers=2&tq=select%20B&tqx=' + encodeURIComponent('out:json;responseHandler:' + callback) + '&_=' + Date.now();
     document.head.append(script);
   }
   try {
@@ -51,13 +53,24 @@
       completed = MouldStatus.codes(saved.codes); fetchedAt = date; known = true;
     }
   } catch {}
+  publish();
+  function searching() { return $('homeSearch').value.trim() || $('jobSearch').value.trim(); }
+  function refreshSearch() {
+    if (searching() && !document.hidden && navigator.onLine !== false && Date.now() - lastAttempt >= 15000) refresh();
+    else if (searching() && navigator.onLine === false) fail('You are offline. Finished jobs may be out of date.');
+  }
+  $('homeSearch').addEventListener('input', refreshSearch);
+  $('jobSearch').addEventListener('input', refreshSearch);
+  $('homeRefresh').addEventListener('click', () => { if (searching()) refresh(); });
+  $('refresh').addEventListener('click', () => { if (searching()) refresh(); });
+  setInterval(refreshSearch, 15000);
   $('openJobStatus').addEventListener('click', () => {
     filter.value = 'done'; search.value = ''; render(); modal.showModal(); refresh();
   });
   $('closeJobStatus').addEventListener('click', () => modal.close());
   search.addEventListener('input', render); filter.addEventListener('change', render);
   $('refreshJobStatus').addEventListener('click', refresh);
-  window.addEventListener('online', () => { if (modal.open) refresh(); });
+  window.addEventListener('online', () => { if (modal.open || searching()) refresh(); });
   // Keep the device-data clearing action consistent with the completed-name cache.
   $('clearSaved').addEventListener('click', () => { try { localStorage.removeItem(cacheKey); } catch {} });
 })();

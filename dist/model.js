@@ -7,6 +7,13 @@
  const isPlan=p=>p.stages.some(s=>stage(s)==='TO PLAN');
  const isDelayed=p=>p.stages.some(s=>['DELAY','DELAYED'].includes(stage(s)));
  const isReady=p=>['YES','TRUE'].includes(stage(p.ready));
+ function searchJobs(active,finishedCodes,query){
+  const search=norm(query).toLowerCase();
+  const finished=new Map(finishedCodes.map(value=>{const code=norm(value);return [key(code),{id:key(code),code,name:code.split(' ')[0],finished:true}];}));
+  const results=active.filter(job=>!finished.has(job.id)&&job.code.toLowerCase().includes(search));
+  if(search)for(const job of finished.values())if(job.code.toLowerCase().includes(search))results.push(job);
+  return results;
+ }
  function progress(job){
   let completed=0,total=0;
   for(const part of job.parts){
@@ -38,6 +45,6 @@
   }
   if(!jobs.length)throw Error('No mould records were found in Sheet5.');return jobs;
  }
- const api={norm,key,stage,isProcess,isPlan,isDelayed,isReady,progress,parse};root.MouldModel=api;
+ const api={norm,key,stage,isProcess,isPlan,isDelayed,isReady,searchJobs,progress,parse};root.MouldModel=api;
  if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

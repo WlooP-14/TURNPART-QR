@@ -3,8 +3,9 @@
   const normalize = value => String(value ?? '').trim().replace(/\s+/g, ' ');
   const id = value => normalize(value).toUpperCase().replace(/ /g, '-');
   function parseArchive(table) {
-    if (!Array.isArray(table?.rows) || !String(table.cols?.[1]?.label).toUpperCase().includes('CUSTOMER CODE')) throw Error('The completed-mould sheet format has changed.');
-    return codes(table.rows.map(row => row.c?.[1]?.f ?? row.c?.[1]?.v ?? '').filter(value => String(value).trim()));
+    const column = table?.cols?.findIndex(col => String(col.label).toUpperCase().includes('CUSTOMER CODE')) ?? -1;
+    if (!Array.isArray(table?.rows) || column < 0) throw Error('The completed-mould sheet format has changed.');
+    return codes(table.rows.map(row => row.c?.[column]?.f ?? row.c?.[column]?.v ?? '').filter(value => String(value).trim()));
   }
   function codes(values) {
     if (!Array.isArray(values) || values.some(value => typeof value !== 'string' || !normalize(value))) throw Error('Invalid completed mould list.');

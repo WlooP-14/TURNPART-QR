@@ -48,7 +48,8 @@ function app(url = 'https://tracker.example/') {
   sandbox.fixtureJobs = jobs;
   const refresh = () => vm.runInContext('applyData(fixtureJobs, new Date())', sandbox);
   refresh();
-  return { get, location, events, refresh, jobs, animations, document: sandbox.document };
+  const setArchive = codes => { sandbox.archiveFixture = { codes, known: true, busy: false, error: '', fetchedAt: new Date() }; vm.runInContext('setArchiveState(archiveFixture)', sandbox); };
+  return { get, location, events, refresh, jobs, animations, setArchive, document: sandbox.document };
 }
 
 test('the root opens the mould list, refresh stays home, and choosing a mould opens details', () => {
@@ -110,4 +111,31 @@ test('automatic refreshes do not replay view transitions', () => {
   assert.equal(ui.animations.length, initial + 1);
   ui.refresh(); assert.equal(ui.animations.length, initial + 1);
   ui.get('backToHome').click(); assert.equal(ui.animations.length, initial + 2);
+});
+
+
+test('finished moulds stay hidden until searched and cannot open parts or history', () => {
+  const ui = app();
+  ui.setArchive(['1407 FBMS 0826']);
+  assert.equal(ui.get('homeJobs').children.length, 1);
+  ui.get('homeSearch').value = '1407'; ui.get('homeSearch').events.input();
+  const result = ui.get('homeJobs').children[0];
+  assert.equal(result.children[0].children[1].textContent, '1407 FBMS 0826');
+  assert.equal(result.children[1].textContent, 'Job finished');
+  assert.equal(result.events.click, undefined);
+  assert.equal(ui.get('workspace').hidden, true);
+  ui.get('homeSearch').value = ' '; ui.get('homeSearch').events.input();
+  assert.equal(ui.get('homeJobs').children.length, 1);
+  assert.equal(ui.get('homeJobs').children[0].children[0].children[0].textContent, 'Job 1423');
+  ui.get('jobSearch').value = 'FBMS'; ui.get('jobSearch').events.input();
+  assert.equal(ui.get('jobs').children[0].children[1].textContent, 'Job finished');
+});
+
+test('home search excludes archived duplicates from the default list', () => {
+  const ui = app();
+  ui.setArchive(['1423 TNRV 0926']);
+  assert.equal(ui.get('homeJobs').children[0].textContent, 'No matching moulds.');
+  ui.get('homeSearch').value = '1423'; ui.get('homeSearch').events.input();
+  assert.equal(ui.get('homeJobs').children.length, 1);
+  assert.equal(ui.get('homeJobs').children[0].children[1].textContent, 'Job finished');
 });
