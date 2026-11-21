@@ -35,7 +35,7 @@ function drawDirectory() {
     button.setAttribute('aria-pressed', String(job.id === selected?.id));
     const top = el('span', undefined, 'job-item-top');
     top.append(el('strong', 'Job ' + job.name), el('small', job.customer));
-    button.append(top, el('span', job.code, 'job-code'), el('small', job.parts.length + ' parts · ' + job.received));
+    button.append(top, el('span', job.code, 'job-code'), el('small', job.parts.length + ' parts · ' + job.received), el('small', 'B.O.M. date: ' + (job.bom || '—'), 'bom-date'));
     const progress = M.progress(job), work = el('span', undefined, 'directory-progress'), meter = el('progress');
     meter.max = 100; MouldMotion.progress(meter, progress.percent, 'directory:' + job.id);
     meter.setAttribute('aria-label', 'Work completed for ' + job.code);
@@ -44,7 +44,7 @@ function drawDirectory() {
   }
   if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted'));
 }
-function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  BOM '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();if(animateView)MouldMotion.enter($('workspace'));}
+function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  B.O.M. date: '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();if(animateView)MouldMotion.enter($('workspace'));}
 function drawHome() {
   const query = $('homeSearch').value, list = $('homeJobs');
   const visible = M.searchJobs(jobs, archiveState.codes, query);
@@ -56,7 +56,7 @@ function drawHome() {
     const progress = M.progress(job);
     const row = el('button', undefined, 'home-job');
     const identity = el('span', undefined, 'home-job-identity');
-    identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'));
+    identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'), el('small', 'B.O.M. date: ' + (job.bom || '—'), 'bom-date'));
     const work = el('span', undefined, 'home-job-work');
     const meter = el('progress'); meter.max = 100; MouldMotion.progress(meter, progress.percent, 'home:' + job.id);
     meter.setAttribute('aria-label', 'Work completed for ' + job.code);
