@@ -55,7 +55,7 @@ The archive request selects column B only; no archived part rows are retrieved f
 
 Mould navigation uses short fade/slide entrances; interactive controls have hover/press feedback; dropdowns and dialogs transition open/closed on supporting browsers. Progress bars ease from their previous value when status percentages change. Automatic sheet refreshes do not replay page entrance animations. System reduced-motion preferences disable these effects; print output has transitions disabled. Browsers without the animation APIs retain immediate, functional navigation.
 
-Only the part-name cell is shaded with a stronger coral-red background, dark red text, and a red edge accent when assembly readiness is not explicitly Yes/True. All other cells retain the normal alternating colours. Ready parts also use the normal part-name background. Shading follows the sheet value on each refresh.
+Only the part-name cell is shaded with a light red background, dark red text, and a red edge accent when assembly readiness is not explicitly Yes/True. All other cells retain the normal alternating colours. Ready parts also use the normal part-name background. Shading follows the sheet value on each refresh.
 
 ## Mould status list
 
