@@ -25,5 +25,5 @@ dialog{opacity:0;transform:translateY(14px) scale(.98);transition:opacity .2s ea
 
 .home-job-identity .bom-date,.job-item .bom-date{display:block;color:#547260;font-size:11px;line-height:1.6;font-weight:500}.job-item .bom-date{margin-top:4px;font-size:10px}
 
-/* Match the existing red status shade, including sticky part-name cells and hover. */
-tbody tr.not-ready-row>*{background:#ffe3dd}
+/* Only the sticky part-name cell reflects assembly readiness. */
+tbody tr.not-ready-row>th.part-col{background:#ffe3dd}
