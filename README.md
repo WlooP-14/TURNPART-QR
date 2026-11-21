@@ -55,6 +55,8 @@ The archive request selects column B only; no archived part rows are retrieved f
 
 Mould navigation uses short fade/slide entrances; interactive controls have hover/press feedback; dropdowns and dialogs transition open/closed on supporting browsers. Progress bars ease from their previous value when status percentages change. Automatic sheet refreshes do not replay page entrance animations. System reduced-motion preferences disable these effects; print output has transitions disabled. Browsers without the animation APIs retain immediate, functional navigation.
 
+Rows whose assembly readiness is not explicitly Yes/True use the existing red status background across every cell, including the sticky part name. Ready rows keep the normal alternating table colours. Shading follows the sheet value on each refresh.
+
 ## Mould status list
 
 Choose **Mould status** next to **Open Google Sheet** in the header to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
