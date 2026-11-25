@@ -25,5 +25,7 @@ dialog{opacity:0;transform:translateY(14px) scale(.98);transition:opacity .2s ea
 
 .home-job-identity .bom-date,.job-item .bom-date{display:block;color:#547260;font-size:11px;line-height:1.6;font-weight:500}.job-item .bom-date{margin-top:4px;font-size:10px}
 
-/* Only the sticky part-name cell reflects assembly readiness. */
-tbody tr.not-ready-row>th.part-col{background:#ffe3dd;color:#641f24;box-shadow:inset 4px 0 0 #b53b42}
+
+
+/* Part-name colours are manual device-local marks, independent of sheet readiness. */
+tbody th.part-col.manual-part{padding:0}.part-name-button{display:block;width:100%;min-height:44px;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:12px 23px;cursor:pointer;touch-action:manipulation}.part-name-button:focus-visible{outline:2px solid var(--teal);outline-offset:-4px}.part-name-button:active{transform:scale(.985)}tbody th.part-col.part-mark-red{background:#ffe3dd;color:#641f24;box-shadow:inset 4px 0 0 #b53b42}tbody th.part-col.part-mark-green{background:#daf0df;color:#24563f;box-shadow:inset 4px 0 0 #3b8c72}@media(max-width:760px){.part-name-button{padding:12px 13px}}

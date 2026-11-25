@@ -38,7 +38,7 @@ function app(url = 'https://tracker.example/') {
   const location = { href: url };
   const window = { addEventListener: (name, handler) => { events[name] = handler; }, scrollTo() {} };
   const sandbox = {
-    MouldModel: Model, document: { getElementById: get, createElement: () => new Node(), head: new Node(), body: new Node() },
+    MouldModel: Model, MouldMarks: require('../dist/part-marks.js'), document: { getElementById: get, createElement: () => new Node(), head: new Node(), body: new Node() },
     window, location, URL, navigator: { onLine: true }, history: { pushState(_, __, next) { location.href = String(next); } },
     MouldSnapshot: { read: () => null }, MouldMotion: { enter(node) { animations.push(node); }, progress(node, value) { node.value = value; } }, localStorage: {}, setTimeout: () => 1, clearTimeout() {}, setInterval() {}
   };
@@ -138,4 +138,25 @@ test('home search excludes archived duplicates from the default list', () => {
   ui.get('homeSearch').value = '1423'; ui.get('homeSearch').events.input();
   assert.equal(ui.get('homeJobs').children.length, 1);
   assert.equal(ui.get('homeJobs').children[0].children[1].textContent, 'Job finished');
+});
+
+test('part-name taps cycle only that cell, survive filters/refreshes, and do not edit readiness', () => {
+  const ui = app('https://tracker.example/?job=1423-TNRV-0926');
+  ui.jobs[0].parts = [
+    { name: 'LOCATING RING', qty: '1', material: 'MS', stages: ['TO PLAN'], vendors: ['', '', ''], ready: 'NO' },
+    { name: 'SPRUE BUSH', qty: '1', material: 'EN31', stages: ['DONE'], vendors: ['', '', ''], ready: 'YES' }
+  ];
+  ui.refresh();
+  const cell = () => ui.get('parts').children[0].children[0];
+  assert.equal(cell().className, 'part-col manual-part');
+  cell().children[0].click(); assert.match(cell().className, /part-mark-red/);
+  assert.equal(ui.get('parts').children[1].children[0].className, 'part-col manual-part');
+  ui.refresh(); assert.match(cell().className, /part-mark-red/);
+  cell().children[0].click(); assert.match(cell().className, /part-mark-green/);
+  ui.get('partSearch').value = 'SPRUE'; ui.get('partSearch').events.input();
+  assert.equal(cell().className, 'part-col manual-part');
+  ui.get('partSearch').value = ''; ui.get('partSearch').events.input();
+  assert.match(cell().className, /part-mark-green/);
+  cell().children[0].click(); assert.equal(cell().className, 'part-col manual-part');
+  assert.equal(ui.jobs[0].parts[0].ready, 'NO'); assert.equal(ui.jobs[0].parts[1].ready, 'YES');
 });

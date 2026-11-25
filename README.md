@@ -55,7 +55,7 @@ The archive request selects column B only; no archived part rows are retrieved f
 
 Mould navigation uses short fade/slide entrances; interactive controls have hover/press feedback; dropdowns and dialogs transition open/closed on supporting browsers. Progress bars ease from their previous value when status percentages change. Automatic sheet refreshes do not replay page entrance animations. System reduced-motion preferences disable these effects; print output has transitions disabled. Browsers without the animation APIs retain immediate, functional navigation.
 
-Only the part-name cell is shaded with a light red background, dark red text, and a red edge accent when assembly readiness is not explicitly Yes/True. All other cells retain the normal alternating colours. Ready parts also use the normal part-name background. Shading follows the sheet value on each refresh.
+Part names start with normal table colours. Tap a name to cycle **normal → red → green → normal**, with no confirmation or network request. Enter/Space also activates the name button. Only that part-name cell changes. Colours are manual marks, independent of assembly readiness; the app never writes them to Google Sheets. Marks are saved in this browser on this device and survive filters, refreshes, and reloads when local storage is available. If storage is blocked, tapping still works for the current session. Other devices do not share these marks. Keys use the full mould identifier and the part name/material/quantity plus an occurrence number for repeated identical entries. Changing those identifying values, reordering identical duplicate entries, or clearing browser storage may reset or reassign a mark.
 
 ## Mould status list
 
