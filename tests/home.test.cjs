@@ -140,7 +140,7 @@ test('home search excludes archived duplicates from the default list', () => {
   assert.equal(ui.get('homeJobs').children[0].children[1].textContent, 'Job finished');
 });
 
-test('part-name taps cycle only that cell, survive filters/refreshes, and do not edit readiness', () => {
+test('automatic readiness colours coexist with manual taps and reset when readiness changes', () => {
   const ui = app('https://tracker.example/?job=1423-TNRV-0926');
   ui.jobs[0].parts = [
     { name: 'LOCATING RING', qty: '1', material: 'MS', stages: ['TO PLAN'], vendors: ['', '', ''], ready: 'NO' },
@@ -148,15 +148,19 @@ test('part-name taps cycle only that cell, survive filters/refreshes, and do not
   ];
   ui.refresh();
   const cell = () => ui.get('parts').children[0].children[0];
-  assert.equal(cell().className, 'part-col manual-part');
-  cell().children[0].click(); assert.match(cell().className, /part-mark-red/);
+  assert.match(cell().className, /part-mark-red/);
   assert.equal(ui.get('parts').children[1].children[0].className, 'part-col manual-part');
-  ui.refresh(); assert.match(cell().className, /part-mark-red/);
   cell().children[0].click(); assert.match(cell().className, /part-mark-green/);
+  ui.refresh(); assert.match(cell().className, /part-mark-green/);
+  cell().children[0].click(); assert.equal(cell().className, 'part-col manual-part');
+  ui.refresh(); assert.equal(cell().className, 'part-col manual-part');
   ui.get('partSearch').value = 'SPRUE'; ui.get('partSearch').events.input();
   assert.equal(cell().className, 'part-col manual-part');
   ui.get('partSearch').value = ''; ui.get('partSearch').events.input();
-  assert.match(cell().className, /part-mark-green/);
-  cell().children[0].click(); assert.equal(cell().className, 'part-col manual-part');
-  assert.equal(ui.jobs[0].parts[0].ready, 'NO'); assert.equal(ui.jobs[0].parts[1].ready, 'YES');
+  cell().children[0].click(); assert.match(cell().className, /part-mark-red/);
+  assert.equal(ui.jobs[0].parts[0].ready, 'NO');
+  ui.jobs[0].parts[0].ready = 'YES'; ui.refresh();
+  assert.equal(cell().className, 'part-col manual-part');
+  ui.jobs[0].parts[0].ready = 'NO'; ui.refresh();
+  assert.match(cell().className, /part-mark-red/);
 });

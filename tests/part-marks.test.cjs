@@ -35,3 +35,28 @@ test('corrupt or blocked storage never prevents immediate tap cycling', () => {
   assert.equal(Marks.create(local).get('part'), 'normal');
   assert.equal(Marks.create(local).get('other'), 'red');
 });
+
+test('automatic No/Yes colours coexist with saved manual overrides until readiness changes', () => {
+  const local = storage(), marks = Marks.create(local);
+  assert.equal(marks.get('part', false), 'red');
+  assert.equal(marks.cycle('part', false), 'green');
+  assert.equal(Marks.create(local).get('part', false), 'green');
+  assert.equal(marks.cycle('part', false), 'normal');
+  assert.equal(Marks.create(local).get('part', false), 'normal');
+  assert.equal(marks.cycle('part', false), 'red');
+  assert.equal(marks.get('part', true), 'normal');
+  assert.equal(Marks.create(local).get('part', true), 'normal');
+  assert.equal(marks.cycle('part', true), 'red');
+  assert.equal(marks.get('part', false), 'red');
+  assert.equal(marks.cycle('part', false), 'green');
+  assert.equal(marks.get('part', true), 'normal');
+});
+
+test('existing tap colours migrate without being discarded and then follow readiness changes', () => {
+  const local = storage();
+  local.setItem('mould-crate:part-marks:v1', JSON.stringify({ part: 'green' }));
+  const marks = Marks.create(local);
+  assert.equal(marks.get('part', false), 'green');
+  assert.equal(Marks.create(local).get('part', false), 'green');
+  assert.equal(marks.get('part', true), 'normal');
+});
