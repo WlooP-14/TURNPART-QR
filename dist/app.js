@@ -2,7 +2,7 @@
 const M=MouldModel,$=id=>document.getElementById(id);
 let jobs=[],selected=null,fetched=null,activeScript=null,timer=null,request=0,busy=false;
 let sheetLive=false;
-let archiveState={codes:[],known:false,busy:false,error:'',fetchedAt:null};
+let archiveState={codes:[],jobs:[],live:false,known:false,busy:false,error:'',fetchedAt:null};
 let partMarks;
 try{partMarks=MouldMarks.create(localStorage);}catch{partMarks=MouldMarks.create(null);}
 const time=d=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)+' IST';
@@ -18,12 +18,20 @@ function setArchiveState(state) {
   archiveState = state;
   drawDirectory();
   if (!$('home').hidden) drawHome();
+  window.MouldHandover?.refresh();
 }
 function finishedLabel(job, className) {
   const row = el('article', undefined, className + ' finished-job');
   const identity = el('span', undefined, 'home-job-identity');
   identity.append(el('strong', 'Job ' + job.name), el('span', job.code));
   row.append(identity, el('span', 'Job finished', 'badge green finished-description'));
+  const record=archiveState.jobs?.find(entry=>entry.id===job.id);
+  if(record?.parts.length&&record.parts.every(M.isReady)){
+    const handover=el('button','Handover turnparts','secondary finished-handover');
+    handover.disabled=!window.MouldHandover?.canStart(record);
+    handover.addEventListener('click',()=>window.MouldHandover?.start(record));
+    row.append(handover);
+  }
   return row;
 }
 function drawDirectory() {

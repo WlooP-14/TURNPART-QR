@@ -1,7 +1,7 @@
 (function(root) {
   'use strict';
   function eligible(job) { return !!job?.parts?.length && job.parts.every(part => ['YES','TRUE'].includes(String(part.ready).trim().toUpperCase())); }
-  function fingerprint(job) { return JSON.stringify([job.id,job.code,job.bom, job.parts.map(part => [part.name,part.qty,part.material,String(part.ready).trim().toUpperCase()])]); }
+  function fingerprint(job) { return JSON.stringify([job.sourceSheet||'Sheet5',job.id,job.code,job.bom, job.parts.map(part => [part.name,part.qty,part.material,String(part.ready).trim().toUpperCase()])]); }
   function filename(job) {
     const label = String(job.name || '') + String(job.customer || '');
     return (label.replace(/[\\/:*?"<>|\x00-\x1f]/g, '').trim().slice(0,150) || 'Mould') + ' turnpart handover proof.pdf';

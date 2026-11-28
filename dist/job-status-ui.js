@@ -2,8 +2,8 @@
 (() => {
   const modal = $('jobStatusDialog'), search = $('jobStatusSearch'), filter = $('jobStatusFilter');
   const cacheKey = 'mould-crate:1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug:JobDispatched:names:v1';
-  let completed = [], fetchedAt = null, known = false, busy = false, request = 0, error = '', lastAttempt = 0;
-  function publish() { setArchiveState({ codes: completed, fetchedAt, known, busy, error }); }
+  let completed = [], archiveJobs = [], live = false, fetchedAt = null, known = false, busy = false, request = 0, error = '', lastAttempt = 0;
+  function publish() { setArchiveState({ codes: completed, jobs:archiveJobs, live, fetchedAt, known, busy, error }); }
   function render() {
     const entries = MouldStatus.combine(jobs, completed);
     const query = search.value.toLowerCase(), selection = filter.value;
@@ -18,7 +18,7 @@
     $('jobStatusCount').textContent = filtered.length + (filtered.length === 1 ? ' mould' : ' moulds');
   }
   function fail(message) {
-    error = message; publish();
+    live=false;error = message; publish();
     $('jobStatusNotice').textContent = message + (fetchedAt ? ' Showing the saved list from ' + time(fetchedAt) + '.' : ' Please try again when connected.');
   }
   function refresh() {
@@ -36,14 +36,15 @@
       try {
         if (data.status !== 'ok') throw Error('Could not load completed moulds.');
         const next = MouldStatus.parseArchive(data.table);
-        completed = next; fetchedAt = new Date(); known = true;
+        const nextJobs=M.parse(data.table,{sheet:'JobDispatched',allowEmpty:true});
+        completed = next;archiveJobs=nextJobs;live=true;fetchedAt = new Date(); known = true;
         try { localStorage.setItem(cacheKey, JSON.stringify({ codes: completed, fetchedAt: fetchedAt.toISOString() })); } catch {}
         finish(); publish(); $('jobStatusNotice').textContent = 'Updated ' + time(fetchedAt); render();
       } catch (error) { failed(error.message); }
     };
     script.onerror = () => failed('Could not refresh completed moulds.');
     const timeout = setTimeout(() => failed('The completed-mould sheet took too long to respond.'), 20000);
-    script.src = 'https://docs.google.com/spreadsheets/d/1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug/gviz/tq?sheet=JobDispatched&headers=2&tq=select%20B&tqx=' + encodeURIComponent('out:json;responseHandler:' + callback) + '&_=' + Date.now();
+    script.src = 'https://docs.google.com/spreadsheets/d/1na81bDrcdb0SAaYOBLHKD-WGb1VvHUTbDImeoRl43Ug/gviz/tq?sheet=JobDispatched&headers=2&tqx=' + encodeURIComponent('out:json;responseHandler:' + callback) + '&_=' + Date.now();
     document.head.append(script);
   }
   try {
@@ -56,8 +57,9 @@
   publish();
   function searching() { return $('homeSearch').value.trim() || $('jobSearch').value.trim(); }
   function refreshSearch() {
-    if (searching() && !document.hidden && navigator.onLine !== false && Date.now() - lastAttempt >= 15000) refresh();
-    else if (searching() && navigator.onLine === false) fail('You are offline. Finished jobs may be out of date.');
+    const needed=searching()||modal.open||window.MouldHandover?.usesArchive();
+    if (needed && !document.hidden && navigator.onLine !== false && Date.now() - lastAttempt >= 15000) refresh();
+    else if (needed && navigator.onLine === false) fail('You are offline. Finished jobs may be out of date.');
   }
   $('homeSearch').addEventListener('input', refreshSearch);
   $('jobSearch').addEventListener('input', refreshSearch);
@@ -71,6 +73,7 @@
   search.addEventListener('input', render); filter.addEventListener('change', render);
   $('refreshJobStatus').addEventListener('click', refresh);
   window.addEventListener('online', () => { if (modal.open || searching()) refresh(); });
+  window.addEventListener('offline',()=>{live=false;publish();});
   // Keep the device-data clearing action consistent with the completed-name cache.
   $('clearSaved').addEventListener('click', () => { try { localStorage.removeItem(cacheKey); } catch {} });
 })();

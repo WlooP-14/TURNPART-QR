@@ -2,33 +2,39 @@
 (() => {
   const H=MouldHandoverModel, modal=$('handoverDialog'), pad=$('signatureDialog'), canvas=$('signatureCanvas'), ctx=canvas.getContext('2d');
   let source=null, draft=null, signature=null, invalid=false, drawing=false, last=null, distance=0;
-  const fresh=()=>sheetLive&&navigator.onLine!==false&&fetched&&Date.now()-fetched.getTime()<45000;
+  const archived=job=>job?.sourceSheet==='JobDispatched';
+  const current=job=>(archived(job)?archiveState.jobs||[]:jobs).find(entry=>entry.id===job?.id);
+  const fresh=(job=source||selected)=>{
+    const live=archived(job)?archiveState.live:sheetLive,when=archived(job)?archiveState.fetchedAt:fetched;
+    return !!(live&&navigator.onLine!==false&&when&&Date.now()-when.getTime()<45000);
+  };
   function error(message){$('handoverMessage').textContent=message;}
   function validCurrent(){
     if(!fresh())throw Error('Refresh the sheet online before completing the handover.');
-    const current=jobs.find(job=>job.id===source?.id);
-    if(!H.eligible(current)||H.fingerprint(current)!==H.fingerprint(source))throw Error('The mould’s parts or readiness changed. Close this proof and start again.');
-    return current;
+    const latest=current(source);
+    if(!H.eligible(latest)||H.fingerprint(latest)!==H.fingerprint(source))throw Error('The mould’s parts or readiness changed. Close this proof and start again.');
+    return latest;
   }
   function refresh(){
     $('handoverButton').hidden=!H.eligible(selected);
-    $('handoverButton').disabled=!fresh();
-    $('handoverButton').title=fresh()?'':'Refresh the sheet online before handover';
+    $('handoverButton').disabled=!fresh(selected);
+    $('handoverButton').title=fresh(selected)?'':'Refresh the sheet online before handover';
     if(modal.open&&source){
-      const current=jobs.find(job=>job.id===source.id);
-      if(!H.eligible(current)||H.fingerprint(current)!==H.fingerprint(source)){
+      const latest=current(source);
+      if(!H.eligible(latest)||H.fingerprint(latest)!==H.fingerprint(source)){
         invalid=true;signature=null;$('saveHandover').disabled=true;$('signProof').disabled=true;
         error('The mould’s parts or readiness changed. Close this proof and start again.');
       }
     }
   }
-  window.MouldHandover={refresh};
+  window.MouldHandover={refresh,start,canStart:job=>H.eligible(job)&&fresh(job),usesArchive:()=>modal.open&&archived(source)};
   function step(name){for(const id of ['handoverAsk','handoverForm','handoverPreview'])$(id).hidden=id!==name;error('');}
-  $('handoverButton').addEventListener('click',()=>{
-    if(!H.eligible(selected)||!fresh())return;
-    source=structuredClone(selected);draft=null;signature=null;invalid=false;
+  function start(job){
+    if(!H.eligible(job)||!fresh(job))return;
+    source=structuredClone(job);draft=null;signature=null;invalid=false;
     $('handoverMould').textContent=source.code;$('handoverForm').reset();step('handoverAsk');modal.showModal();
-  });
+  }
+  $('handoverButton').addEventListener('click',()=>start(selected));
   $('closeHandover').addEventListener('click',()=>modal.close());
   $('cancelHandover').addEventListener('click',()=>modal.close());
   $('confirmHandover').addEventListener('click',()=>step('handoverForm'));

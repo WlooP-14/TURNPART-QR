@@ -47,9 +47,9 @@ Progress counts each applicable turning, hardening, and grinding stage once per 
 
 ## Finished moulds in search
 
-The default overview and dropdown show ongoing moulds only. A nonempty search includes matching names from `JobDispatched`, displayed as noninteractive **Job finished** summaries without part data or history. Clearing the query hides those results. Archived identifiers take precedence if the same job temporarily occurs in both tabs.
+The default overview and dropdown show ongoing moulds only. A nonempty search includes matching names from `JobDispatched`, displayed as **Job finished** summaries without a part-history table. A completed result with every turnpart ready includes **Handover turnparts**, which opens the same review, signature, and PDF flow directly from that result. Clearing the query hides those results. Archived identifiers take precedence if the same job temporarily occurs in both tabs.
 
-The archive request selects column B only; no archived part rows are retrieved for display. Search refreshes the completed-name list independently, reuses the timestamped device cache, and reports unavailable/stale results without blocking ongoing jobs. The existing Mould status popup shares this source.
+Search reads `JobDispatched` independently, including its grouped turnpart records to check handover readiness. These part rows are used internally for the handover check and are not displayed as history. Only completed names are persisted in the timestamped device cache; the handover needs a successful live archive fetch. Unavailable/stale archive data disables its handover actions without blocking ongoing jobs. The existing Mould status popup shares this source.
 
 ## Interface motion
 
@@ -59,7 +59,7 @@ Part names default to light red with the red edge accent when assembly readiness
 
 ## Mould status list
 
-Choose **Mould status** next to **Open Google Sheet** in the header to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view reads only merged job-header names and displays no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
+Choose **Mould status** next to **Open Google Sheet** in the header to view a searchable list of mould identifiers and Done/Ongoing status. It opens on **Done**. Completed names come from the `JobDispatched` tab; ongoing names come from `Sheet5`. The completed view displays merged job-header names and no part history. If a job occurs in both sources, the archive marks it Done once. The completed-name list has independent refresh/error handling and a timestamped offline copy. Assembly readiness alone does not mark a mould dispatched.
 
 **Open Google Sheet** is visible in the header on desktop and mobile. Mobile search fields use a readable input size, and the directory scrolls vertically within its own area.
 
@@ -73,7 +73,7 @@ Print actions suggest a PDF filename containing the unique mould numbers and the
 
 When every part entry is explicitly ready to assemble, **Handover turnparts** appears on the mould details. Confirm handover, enter the receiving Die maker and the person handing over, and confirm physical self-review. The proof preview includes the full mould identifier, B.O.M. date, current handover date in India, both names, and a turnparts-only handover and receipt statement. Both the preview and PDF use Times New Roman (with Times/serif fallbacks where unavailable), bold key entered details and review statements, and wrap whole words with consistent paragraph spacing. The Die maker opens **Ready to sign?**, draws on the signature pad with a finger, stylus, or mouse, and accepts the signature before **Save signed PDF** becomes available. Clear and re-sign are supported. The PDF is A4 and downloads with a name such as `1420BAEM turnpart handover proof.pdf`; the browser/device controls its final save location.
 
-Handover needs a recent successful online sheet fetch. Changed part names, quantities, materials, or readiness invalidate an open proof; a new day's date requires preparing and signing again. Readiness does not replace the person's required self-review. Names and signatures stay in memory during the flow and are included only in the locally downloaded PDF. They are cleared on closing the dialog, are not uploaded or written to the sheet, and there is no shared handover register or automatic dispatched-status change.
+Handover needs a recent successful online fetch of the job’s own sheet: `Sheet5` for ongoing jobs, `JobDispatched` for completed jobs. Completed results stay hidden until searched, and their handover button does not open a part-history table. The archive refreshes every 15 seconds while searching, viewing mould status, or preparing a completed-job handover. Changed part names, quantities, materials, or readiness invalidate an open proof; a new day's date requires preparing and signing again. Readiness does not replace the person's required self-review. Names and signatures stay in memory during the flow and are included only in the locally downloaded PDF. They are cleared on closing the dialog, are not uploaded or written to the sheet, and there is no shared handover register or automatic dispatched-status change.
 
 ## Install and use offline
 

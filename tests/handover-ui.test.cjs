@@ -16,10 +16,11 @@ function ui(){
   return nodes.get(id);
  };
  const job={id:'1420-BAEM-0926',code:'1420 BAEM 0926',name:'1420',customer:'BAEM',parts:[{name:'PIN',qty:4,material:'8620',ready:'YES'}]};
- const sandbox={MouldHandoverModel:H,$:get,el:(tag,textContent)=>({tag,textContent,append(...children){this.children=children;}}),window:{},navigator:{onLine:true},sheetLive:true,fetched:new Date(),jobs:[job],selected:job,structuredClone,Date};
+ const sandbox={MouldHandoverModel:H,$:get,el:(tag,textContent)=>({tag,textContent,append(...children){this.children=children;}}),window:{},navigator:{onLine:true},sheetLive:true,fetched:new Date(),archiveState:{jobs:[],live:false,fetchedAt:null},jobs:[job],selected:job,structuredClone,Date};
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync(require.resolve('../dist/handover-ui.js'),'utf8'),sandbox);
- const prepare=()=>{
-  get('handoverButton').click();get('confirmHandover').click();get('dieMakerName').value='TEST Maker';get('senderName').value='TEST Sender';get('handoverReviewed').checked=true;
+ const prepare=(archivedJob)=>{
+  if(archivedJob)sandbox.window.MouldHandover.start(archivedJob);else get('handoverButton').click();
+  get('confirmHandover').click();get('dieMakerName').value='TEST Maker';get('senderName').value='TEST Sender';get('handoverReviewed').checked=true;
   get('handoverForm').events.submit({preventDefault(){}});
  };
  const stroke=()=>{
@@ -51,4 +52,17 @@ test('changed source data invalidates an open signed proof and a failed refresh 
  a.sandbox.sheetLive=true;a.job.parts[0].qty=8;a.refresh();assert.equal(a.get('saveHandover').disabled,true);assert.equal(a.get('signProof').disabled,true);
  assert.match(a.get('handoverMessage').textContent,/changed/);
  a.get('closeHandover').click();assert.equal(a.get('handoverDialog').open,false);
+});
+test('dispatched handovers use archive freshness and archive parts, independently of the ongoing sheet',async()=>{
+ const a=ui(),archive=structuredClone(a.job);archive.sourceSheet='JobDispatched';archive.code='ARCHIVED MOULD';
+ a.sandbox.archiveState={jobs:[archive],live:true,fetchedAt:new Date()};a.sandbox.sheetLive=false;
+ const api=a.sandbox.window.MouldHandover;
+ assert.equal(api.canStart(archive),true);a.prepare(archive);assert.equal(api.usesArchive(),true);
+ assert.equal(a.get('proofMould').textContent,'ARCHIVED MOULD');
+ a.get('signProof').click();a.stroke();a.get('useSignature').click();assert.equal(a.get('saveHandover').disabled,false);
+ a.sandbox.sheetLive=true;a.sandbox.archiveState.live=false;await a.get('saveHandover').click();
+ assert.match(a.get('handoverMessage').textContent,/Refresh the sheet online/);
+ a.sandbox.archiveState.live=true;a.sandbox.archiveState.fetchedAt=new Date(Date.now()-46000);assert.equal(api.canStart(archive),false);
+ a.sandbox.archiveState.fetchedAt=new Date();archive.parts[0].ready='NO';a.refresh();
+ assert.equal(a.get('saveHandover').disabled,true);assert.match(a.get('handoverMessage').textContent,/changed/);
 });

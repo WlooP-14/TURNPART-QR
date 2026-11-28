@@ -60,6 +60,18 @@ test('storage denial is nonfatal and clear removes the saved copy', () => {
   assert.equal(Snapshot.clear(cache), true); assert.equal(Snapshot.read(cache, Model), null);
 });
 
+test('JobDispatched retains complete grouped turnparts and its source for handover checks', () => {
+  const archived=Model.parse(table(),{sheet:'JobDispatched',allowEmpty:true});
+  assert.equal(archived[0].sourceSheet,'JobDispatched');assert.equal(archived[0].parts.length,2);
+  assert.equal(archived[0].code,'1423 TNRV 0926');assert.equal(archived[0].bom,'23/10/2026');
+  assert.equal(archived[0].parts[0].ready,'NO');assert.equal(archived[0].parts[1].ready,'YES');
+  const empty=table();empty.rows=[];
+  assert.deepEqual(Model.parse(empty,{sheet:'JobDispatched',allowEmpty:true}),[]);
+  assert.throws(()=>Model.parse(empty));
+  const invalid=table();invalid.cols[15].label='CHANGED';
+  assert.throws(()=>Model.parse(invalid,{sheet:'JobDispatched',allowEmpty:true}));
+});
+
 function worker() {
   const handlers = {}, buckets = new Map(), network = [], deleted = [];
   let claimed = 0, skipped = 0;

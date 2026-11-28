@@ -48,8 +48,8 @@ function app(url = 'https://tracker.example/') {
   sandbox.fixtureJobs = jobs;
   const refresh = () => vm.runInContext('applyData(fixtureJobs, new Date())', sandbox);
   refresh();
-  const setArchive = codes => { sandbox.archiveFixture = { codes, known: true, busy: false, error: '', fetchedAt: new Date() }; vm.runInContext('setArchiveState(archiveFixture)', sandbox); };
-  return { get, location, events, refresh, jobs, animations, setArchive, document: sandbox.document };
+  const setArchive = (codes, archiveJobs = [], live = true) => { sandbox.archiveFixture = { codes, jobs:archiveJobs, live, known: true, busy: false, error: '', fetchedAt: new Date() }; vm.runInContext('setArchiveState(archiveFixture)', sandbox); };
+  return { get, location, events, refresh, jobs, animations, setArchive, window, document: sandbox.document };
 }
 
 test('the root opens the mould list, refresh stays home, and choosing a mould opens details', () => {
@@ -138,6 +138,22 @@ test('home search excludes archived duplicates from the default list', () => {
   ui.get('homeSearch').value = '1423'; ui.get('homeSearch').events.input();
   assert.equal(ui.get('homeJobs').children.length, 1);
   assert.equal(ui.get('homeJobs').children[0].children[1].textContent, 'Job finished');
+});
+
+test('ready completed search results offer handover using their own data without opening part history', () => {
+  const ui=app(),started=[];
+  ui.window.MouldHandover={refresh(){},canStart:()=>true,start:job=>started.push(job)};
+  const archived={id:'1407-FBMS-0826',code:'1407 FBMS 0826',sourceSheet:'JobDispatched',parts:[{name:'PIN',ready:'YES'}]};
+  ui.setArchive([archived.code],[archived]);
+  assert.equal(ui.get('homeJobs').children.length,1);
+  ui.get('homeSearch').value='1407';ui.get('homeSearch').events.input();
+  const button=ui.get('homeJobs').children[0].children[2];
+  assert.equal(button.textContent,'Handover turnparts');assert.equal(button.disabled,false);
+  button.click();assert.equal(started[0],archived);assert.equal(ui.get('workspace').hidden,true);
+  ui.window.MouldHandover.canStart=()=>false;ui.setArchive([archived.code],[archived],false);
+  assert.equal(ui.get('homeJobs').children[0].children[2].disabled,true);
+  archived.parts[0].ready='NO';ui.setArchive([archived.code],[archived]);
+  assert.equal(ui.get('homeJobs').children[0].children.length,2);
 });
 
 test('automatic readiness colours coexist with manual taps and reset when readiness changes', () => {
