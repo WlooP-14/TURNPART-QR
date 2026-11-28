@@ -40,7 +40,11 @@
       signature=null;$('signProof').disabled=false;$('saveHandover').disabled=true;
       $('proofMould').textContent=draft.code;$('proofDate').textContent=draft.date;$('proofBom').textContent=draft.bom;
       $('proofSender').textContent=draft.sender;$('proofMaker').textContent=draft.maker;
-      $('proofBody').replaceChildren(...draft.paragraphs.map(text=>el('p',text)));
+      $('proofBody').replaceChildren(...draft.paragraphRuns.map(runs=>{
+        const paragraph=el('p');
+        paragraph.append(...runs.map(run=>el(run.bold?'strong':'span',run.text)));
+        return paragraph;
+      }));
       $('proofSignature').hidden=true;$('signProof').textContent='Ready to sign?';step('handoverPreview');
     }catch(e){error(e.message);}
   });
@@ -76,34 +80,36 @@
     }catch(e){$('signatureMessage').textContent=e.message;}
   });
   async function makePdf(draft,signature){
+    await document.fonts?.ready;
     const page=document.createElement('canvas');page.width=1654;page.height=2339;
     const c=page.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,page.width,page.height);
     const left=145,width=1364;
-    function text(value,y,size=28,bold=false){c.fillStyle='#203538';c.font=(bold?'600 ':'')+size+'px system-ui, sans-serif';c.fillText(value,left,y);}
-    function wrap(value,y,size=29){
-      c.font=size+'px system-ui, sans-serif';c.fillStyle='#203538';let line='';
-      for(const word of value.split(/\s+/)){
-        const next=line?line+' '+word:word;
-        if(c.measureText(next).width<=width){line=next;continue;}
-        if(line){c.fillText(line,left,y);y+=49;line='';}
-        for(const char of word){
-          if(c.measureText(line+char).width>width){c.fillText(line,left,y);y+=49;line='';}
-          line+=char;
-        }
+    const font=(size,bold)=>`${bold?'700':'400'} ${size}px "Times New Roman", Times, serif`;
+    function text(value,y,size=28,bold=false){c.fillStyle='#1e2525';c.font=font(size,bold);c.fillText(value,left,y);}
+    function wrap(runs,y,size=32){
+      const measure=(value,bold)=>{c.font=font(size,bold);return c.measureText(value).width;};
+      const lines=H.wrapRuns(runs,width,measure);c.fillStyle='#1e2525';
+      for(const line of lines){
+        const fullWidth=line.reduce((sum,run)=>sum+measure(run.text,run.bold),0);
+        // A single unusually long identifier stays whole and scales to the text area.
+        const scale=Math.min(1,width/fullWidth);let x=0;
+        c.save();c.translate(left,y);c.scale(scale,1);
+        for(const run of line){c.font=font(size,run.bold);c.fillText(run.text,x,0);x+=measure(run.text,run.bold);}
+        c.restore();y+=size*1.5;
       }
-      if(line)c.fillText(line,left,y);return y+65;
+      return y+20;
     }
     text('MOULD & CRATE',170,26,true);text('TURNPART HANDOVER PROOF',255,46,true);
     c.fillStyle='#164e50';c.fillRect(left,290,width,5);
     let y=365;
-    for(const [label,value] of [['Mould',draft.code],['B.O.M. date',draft.bom],['Handover date',draft.date],['Handed over by',draft.sender],['Received by (Die maker)',draft.maker]])y=wrap(label+': '+value,y,27);
-    y+=40;for(const paragraph of draft.paragraphs)y=wrap(paragraph,y)+22;
+    for(const [label,value] of [['Mould',draft.code],['B.O.M. date',draft.bom],['Handover date',draft.date],['Handed over by',draft.sender],['Received by (Die maker)',draft.maker]])y=wrap([{text:label+': ',bold:false},{text:value,bold:true}],y,30);
+    y+=30;for(const runs of draft.paragraphRuns)y=wrap(runs,y)+20;
     if(y>1850)throw Error('The proof is too long to fit. Please shorten the names.');
     text('Die maker’s signature',y+35,27,true);
     const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Could not prepare the signature.'));image.src=signature;});
     const signatureScale=Math.min(670/image.width,251/image.height);
     c.drawImage(image,left,y+60,image.width*signatureScale,image.height*signatureScale);
-    text(draft.maker,y+355,27);text(draft.date,y+405,25);
+    wrap([{text:draft.maker,bold:true}],y+355,27);text(draft.date,y+405,25,true);
     const pdf=await PDFLib.PDFDocument.create();const img=await pdf.embedPng(page.toDataURL('image/png'));const sheet=pdf.addPage([595.28,841.89]);sheet.drawImage(img,{x:0,y:0,width:595.28,height:841.89});
     pdf.setTitle(draft.filename.replace(/\.pdf$/,''));pdf.setSubject('Turnparts-only handover acknowledgement');return pdf.save();
   }

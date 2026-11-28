@@ -16,7 +16,7 @@ function ui(){
   return nodes.get(id);
  };
  const job={id:'1420-BAEM-0926',code:'1420 BAEM 0926',name:'1420',customer:'BAEM',parts:[{name:'PIN',qty:4,material:'8620',ready:'YES'}]};
- const sandbox={MouldHandoverModel:H,$:get,el:(tag,textContent)=>({tag,textContent}),window:{},navigator:{onLine:true},sheetLive:true,fetched:new Date(),jobs:[job],selected:job,structuredClone,Date};
+ const sandbox={MouldHandoverModel:H,$:get,el:(tag,textContent)=>({tag,textContent,append(...children){this.children=children;}}),window:{},navigator:{onLine:true},sheetLive:true,fetched:new Date(),jobs:[job],selected:job,structuredClone,Date};
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync(require.resolve('../dist/handover-ui.js'),'utf8'),sandbox);
  const prepare=()=>{
   get('handoverButton').click();get('confirmHandover').click();get('dieMakerName').value='TEST Maker';get('senderName').value='TEST Sender';get('handoverReviewed').checked=true;

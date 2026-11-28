@@ -20,3 +20,22 @@ test('proof snapshot detects readiness, part, material, quantity, and mould chan
  const changed=job();changed.id='other';assert.notEqual(H.fingerprint(changed),fingerprint);
  assert(!/[\\/:*?"<>|]/.test(H.filename({name:'14/20',customer:'BAEM:*'})));
 });
+test('letter emphasizes actual mould, people, date and review details without changing the wording',()=>{
+ const p=H.proof(job(),'Maker Name','Sender Name',true);
+ assert.deepEqual(p.paragraphRuns.map(runs=>runs.map(run=>run.text).join('')),p.paragraphs);
+ const bold=p.paragraphRuns.flat().filter(run=>run.bold).map(run=>run.text);
+ for(const value of [p.code,p.maker,p.sender,p.date,'2','proper self-review','ready to assemble','turnparts only'])assert(bold.includes(value));
+});
+test('mixed regular and bold lines wrap only between complete words, retaining punctuation and emphasis',()=>{
+ const runs=[{text:'For '},{text:'A. Maker',bold:true},{text:', mould '},{text:'1420BAEM',bold:true},{text:' is ready.'}];
+ const measure=(text,bold)=>text.length*(bold?2:1);
+ const lines=H.wrapRuns(runs,22,measure);
+ const texts=lines.map(line=>line.map(run=>run.text).join(''));
+ assert.equal(texts.join(' '),'For A. Maker, mould 1420BAEM is ready.');
+ assert(texts.some(line=>line.includes('Maker,')));
+ for(const line of lines)assert(line.reduce((sum,run)=>sum+measure(run.text,run.bold),0)<=22);
+ assert(lines.flat().filter(run=>run.text==='1420BAEM').every(run=>run.bold));
+ const long='OneUnusuallyLongIdentifier';
+ assert.equal(H.wrapRuns([{text:long,bold:true}],4,measure)[0][0].text,long);
+ assert.deepEqual(H.wrapRuns([],10,measure),[]);
+});
