@@ -38,7 +38,7 @@ function app(url = 'https://tracker.example/') {
   const location = { href: url };
   const window = { addEventListener: (name, handler) => { events[name] = handler; }, scrollTo() {} };
   const sandbox = {
-    MouldModel: Model, MouldMarks: require('../dist/part-marks.js'), document: { getElementById: get, createElement: () => new Node(), head: new Node(), body: new Node() },
+    MouldModel: Model, MouldHandoverState: require('../dist/handover-state.js'), MouldMarks: require('../dist/part-marks.js'), document: { getElementById: get, createElement: () => new Node(), head: new Node(), body: new Node() },
     window, location, URL, navigator: { onLine: true }, history: { pushState(_, __, next) { location.href = String(next); } },
     MouldSnapshot: { read: () => null }, MouldMotion: { enter(node) { animations.push(node); }, progress(node, value) { node.value = value; } }, localStorage: {}, setTimeout: () => 1, clearTimeout() {}, setInterval() {}
   };
@@ -49,7 +49,8 @@ function app(url = 'https://tracker.example/') {
   const refresh = () => vm.runInContext('applyData(fixtureJobs, new Date())', sandbox);
   refresh();
   const setArchive = (codes, archiveJobs = [], live = true) => { sandbox.archiveFixture = { codes, jobs:archiveJobs, live, known: true, busy: false, error: '', fetchedAt: new Date() }; vm.runInContext('setArchiveState(archiveFixture)', sandbox); };
-  return { get, location, events, refresh, jobs, animations, setArchive, window, document: sandbox.document };
+  const setHandovers=records=>{sandbox.handoverFixture={records,known:true,live:true,error:''};vm.runInContext('setHandoverState(handoverFixture)',sandbox);};
+  return { get, location, events, refresh, jobs, animations, setArchive, setHandovers, window, document: sandbox.document };
 }
 
 test('the root opens the mould list, refresh stays home, and choosing a mould opens details', () => {
@@ -89,7 +90,7 @@ test('directory shows percentages, closes on selection, and stays open during a 
   ui.refresh();
   assert.equal(ui.get('mouldDropdown').open, false);
   const item = ui.get('jobs').children[1];
-  assert.equal(item.children.at(-1).children[1].textContent, '50%');
+  assert.equal(item.children.find(node=>node.className==='directory-progress').children[1].textContent, '50%');
   ui.get('mouldDropdown').open = true;
   item.click();
   assert.equal(ui.get('mouldDropdown').open, false);
@@ -114,46 +115,28 @@ test('automatic refreshes do not replay view transitions', () => {
 });
 
 
-test('finished moulds stay hidden until searched and cannot open parts or history', () => {
-  const ui = app();
-  ui.setArchive(['1407 FBMS 0826']);
-  assert.equal(ui.get('homeJobs').children.length, 1);
-  ui.get('homeSearch').value = '1407'; ui.get('homeSearch').events.input();
-  const result = ui.get('homeJobs').children[0];
-  assert.equal(result.children[0].children[1].textContent, '1407 FBMS 0826');
-  assert.equal(result.children[1].textContent, 'Job finished');
-  assert.equal(result.events.click, undefined);
-  assert.equal(ui.get('workspace').hidden, true);
-  ui.get('homeSearch').value = ' '; ui.get('homeSearch').events.input();
-  assert.equal(ui.get('homeJobs').children.length, 1);
-  assert.equal(ui.get('homeJobs').children[0].children[0].children[0].textContent, 'Job 1423');
-  ui.get('jobSearch').value = 'FBMS'; ui.get('jobSearch').events.input();
-  assert.equal(ui.get('jobs').children[0].children[1].textContent, 'Job finished');
+test('dispatched jobs appear beside live jobs and open the same part table and QR route',()=>{
+ const ui=app();
+ const archived={id:'1407-FBMS-0826',code:'1407 FBMS 0826',name:'1407',customer:'FBMS',sourceSheet:'JobDispatched',received:'August 2026',parts:[{name:'PIN',qty:'4',material:'8620',stages:['DONE','DONE','DONE'],vendors:['','',''],ready:'YES'}]};
+ ui.setArchive([archived.code],[archived]);
+ assert.equal(ui.get('homeJobs').children.length,2);
+ ui.get('homeJobs').children[1].click();
+ assert.equal(ui.get('workspace').hidden,false);assert.match(ui.location.href,/1407-FBMS-0826/);
+ assert.equal(ui.get('parts').children[0].children[0].children[0].textContent,'PIN');
+ assert.match(ui.get('jobMeta').textContent,/Dispatched job/);
+ ui.setArchive([archived.code],[archived]);assert.equal(ui.get('workspace').hidden,false);
 });
 
-test('home search excludes archived duplicates from the default list', () => {
-  const ui = app();
-  ui.setArchive(['1423 TNRV 0926']);
-  assert.equal(ui.get('homeJobs').children[0].textContent, 'No matching moulds.');
-  ui.get('homeSearch').value = '1423'; ui.get('homeSearch').events.input();
-  assert.equal(ui.get('homeJobs').children.length, 1);
-  assert.equal(ui.get('homeJobs').children[0].children[1].textContent, 'Job finished');
-});
-
-test('ready completed search results offer handover using their own data without opening part history', () => {
-  const ui=app(),started=[];
-  ui.window.MouldHandover={refresh(){},canStart:()=>true,start:job=>started.push(job)};
-  const archived={id:'1407-FBMS-0826',code:'1407 FBMS 0826',sourceSheet:'JobDispatched',parts:[{name:'PIN',ready:'YES'}]};
-  ui.setArchive([archived.code],[archived]);
-  assert.equal(ui.get('homeJobs').children.length,1);
-  ui.get('homeSearch').value='1407';ui.get('homeSearch').events.input();
-  const button=ui.get('homeJobs').children[0].children[2];
-  assert.equal(button.textContent,'Handover turnparts');assert.equal(button.disabled,false);
-  button.click();assert.equal(started[0],archived);assert.equal(ui.get('workspace').hidden,true);
-  ui.window.MouldHandover.canStart=()=>false;ui.setArchive([archived.code],[archived],false);
-  assert.equal(ui.get('homeJobs').children[0].children[2].disabled,true);
-  archived.parts[0].ready='NO';ui.setArchive([archived.code],[archived]);
-  assert.equal(ui.get('homeJobs').children[0].children.length,2);
+test('duplicate source jobs use the dispatched record once, and handover filters reflect recorded part coverage',()=>{
+ const ui=app();
+ const archived={...ui.jobs[0],sourceSheet:'JobDispatched',parts:[{name:'PIN',qty:'4',material:'8620',stages:['DONE'],vendors:['','',''],ready:'YES'},{name:'BUSH',qty:'2',material:'8620',stages:['DONE'],vendors:['','',''],ready:'YES'}]};
+ ui.setArchive([archived.code],[archived]);assert.equal(ui.get('homeJobs').children.length,1);
+ const keys=[...require('../dist/part-marks.js').keys(archived).values()];
+ ui.setHandovers([{job_id:archived.id,part_keys:[keys[0]]}]);assert.equal(ui.get('homeCountpartial').textContent,1);
+ ui.get('homeStatusfull').click();assert.equal(ui.get('homeJobs').children[0].textContent,'No matching moulds.');
+ ui.get('homeStatuspartial').click();assert.equal(ui.get('homeJobs').children.length,1);
+ ui.get('homeJobs').children[0].click();assert.equal(ui.get('parts').children[0].className,'handed-over');assert.equal(ui.get('parts').children[0].children[0].children[0].disabled,true);
+ ui.setHandovers([{job_id:archived.id,part_keys:keys}]);ui.get('backToHome').click();assert.equal(ui.get('homeCountfull').textContent,1);
 });
 
 test('automatic readiness colours coexist with manual taps and reset when readiness changes', () => {

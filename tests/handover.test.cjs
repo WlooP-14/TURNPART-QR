@@ -39,3 +39,13 @@ test('mixed regular and bold lines wrap only between complete words, retaining p
  assert.equal(H.wrapRuns([{text:long,bold:true}],4,measure)[0][0].text,long);
  assert.deepEqual(H.wrapRuns([],10,measure),[]);
 });
+test('partial proofs list only selected names and their complete quantities, without claiming a full transfer',()=>{
+ const j=job();j.parts[0].ready='NO';
+ assert.throws(()=>H.proof(j,'Maker','Sender',true));
+ for(const partIndexes of [[],[0,0],[-1],[2],[0.5]])assert.throws(()=>H.proof(j,'Maker','Sender',true,new Date(),{mode:'partial',partIndexes}));
+ const partial=H.proof(j,'Maker','Sender',true,new Date(),{mode:'partial',partIndexes:[0]});
+ assert.deepEqual(partial.partList,[{name:'GUIDE PIN',qty:'4'}]);assert.equal(partial.count,1);
+ assert.match(partial.paragraphs[0],/selected turnparts/);assert.match(partial.paragraphs[1],/only the turnparts and quantities listed/);
+ assert.match(partial.filename,/partial turnpart handover proof.pdf$/);
+ const full=H.proof(job(),'Maker','Sender',true);assert.equal(full.partList,null);assert.match(full.paragraphs[1],/complete set/);
+});

@@ -3,6 +3,7 @@ const M=MouldModel,$=id=>document.getElementById(id);
 let jobs=[],selected=null,fetched=null,activeScript=null,timer=null,request=0,busy=false;
 let sheetLive=false;
 let archiveState={codes:[],jobs:[],live:false,known:false,busy:false,error:'',fetchedAt:null};
+let handoverState={known:false,records:[],live:false,error:''},homeHandoverFilter='all';
 let partMarks;
 try{partMarks=MouldMarks.create(localStorage);}catch{partMarks=MouldMarks.create(null);}
 const time=d=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)+' IST';
@@ -14,34 +15,26 @@ function archiveMessage() {
   if (archiveState.error) return archiveState.error + (archiveState.fetchedAt ? ' Saved list from ' + time(archiveState.fetchedAt) + '.' : '');
   return '';
 }
-function setArchiveState(state) {
-  archiveState = state;
-  drawDirectory();
-  if (!$('home').hidden) drawHome();
-  window.MouldHandover?.refresh();
+function allJobs(){
+  const combined=new Map(jobs.map(job=>[job.id,job]));
+  for(const job of archiveState.jobs||[])combined.set(job.id,job);
+  return [...combined.values()];
 }
-function finishedLabel(job, className) {
-  const row = el('article', undefined, className + ' finished-job');
-  const identity = el('span', undefined, 'home-job-identity');
-  identity.append(el('strong', 'Job ' + job.name), el('span', job.code));
-  row.append(identity, el('span', 'Job finished', 'badge green finished-description'));
-  const record=archiveState.jobs?.find(entry=>entry.id===job.id);
-  if(record?.parts.length&&record.parts.every(M.isReady)){
-    const handover=el('button','Handover turnparts','secondary finished-handover');
-    handover.disabled=!window.MouldHandover?.canStart(record);
-    handover.addEventListener('click',()=>window.MouldHandover?.start(record));
-    row.append(handover);
-  }
-  return row;
+function handoverStatus(job){
+  if(!handoverState.known)return {state:'unknown',count:0,total:job.parts.length};
+  return MouldHandoverState.status(job,handoverState.records,[...MouldMarks.keys(job).values()]);
 }
+function handedOver(job,key){return handoverState.known&&handoverState.records.some(row=>row.job_id===job.id&&row.part_keys.includes(key));}
+function handoverBadge(job){const status=handoverStatus(job);return el('span',MouldHandoverState.labels[status.state],'handover-badge handover-'+status.state);}
+function setHandoverState(state){handoverState=state;drawDirectory();if(!$('home').hidden)drawHome();$('handoverSyncNotice').textContent=state.error||'';if(selected)drawParts();window.MouldHandover?.refresh();}
+function setArchiveState(state){archiveState=state;renderRoute();window.MouldHandover?.refresh();}
 function drawDirectory() {
   const query = $('jobSearch').value, list = $('jobs');
-  const visible = M.searchJobs(jobs, archiveState.codes, query);
+  const visible = allJobs().filter(job=>job.code.toLowerCase().includes(query.trim().toLowerCase()));
   list.replaceChildren();
-  $('jobCount').textContent = M.searchJobs(jobs, archiveState.codes, '').length;
+  $('jobCount').textContent = allJobs().length;
   $('directoryArchiveNotice').textContent = query.trim() ? archiveMessage() : '';
   for (const job of visible) {
-    if (job.finished) { list.append(finishedLabel(job, 'job-item')); continue; }
     const button = el('button', undefined, 'job-item' + (job.id === selected?.id ? ' selected' : ''));
     button.setAttribute('aria-pressed', String(job.id === selected?.id));
     const top = el('span', undefined, 'job-item-top');
@@ -50,24 +43,32 @@ function drawDirectory() {
     const progress = M.progress(job), work = el('span', undefined, 'directory-progress'), meter = el('progress');
     meter.max = 100; MouldMotion.progress(meter, progress.percent, 'directory:' + job.id);
     meter.setAttribute('aria-label', 'Work completed for ' + job.code);
-    work.append(meter, el('strong', progress.percent + '%')); button.append(work);
+    work.append(meter, el('strong', progress.percent + '%')); button.append(work,handoverBadge(job),el('small',job.sourceSheet==='JobDispatched'?'Dispatched job':'Live job','source-badge'));
     button.addEventListener('click', () => selectJob(job, true)); list.append(button);
   }
   if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted'));
 }
-function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  B.O.M. date: '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();window.MouldHandover?.refresh();if(animateView)MouldMotion.enter($('workspace'));}
+function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  B.O.M. date: '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';if(j.sourceSheet==='JobDispatched'){$('jobMeta').textContent+='  ·  Dispatched job';$('syncText').textContent=archiveState.fetchedAt?'Fetched '+time(archiveState.fetchedAt):'Archive unavailable';$('syncDot').classList.toggle('offline',!archiveState.live);}drawParts();window.MouldHandover?.refresh();if(animateView)MouldMotion.enter($('workspace'));}
 function drawHome() {
   const query = $('homeSearch').value, list = $('homeJobs');
-  const visible = M.searchJobs(jobs, archiveState.codes, query);
+  const source=$('homeSource').value||'all';
+  const matching=allJobs().filter(job=>job.code.toLowerCase().includes(query.trim().toLowerCase())&&(source==='all'||job.sourceSheet===source));
+  const visible=matching.filter(job=>homeHandoverFilter==='all'||handoverStatus(job).state===homeHandoverFilter);
+  for(const state of ['ongoing','partial','full']){
+    const button=$('homeStatus'+state);
+    button.disabled=!handoverState.known;
+    button.setAttribute('aria-pressed',String(homeHandoverFilter===state));
+    $('homeCount'+state).textContent=handoverState.known?matching.filter(job=>handoverStatus(job).state===state).length:'—';
+  }
+  $('homeStatusAll').setAttribute('aria-pressed',String(homeHandoverFilter==='all'));
   list.replaceChildren();
   $('homeCount').textContent = (query.trim() ? visible.length + ' matching moulds' : visible.length + ' moulds');
-  $('homeArchiveNotice').textContent = query.trim() ? archiveMessage() : '';
+  $('homeArchiveNotice').textContent = archiveMessage();
   for (const job of visible) {
-    if (job.finished) { list.append(finishedLabel(job, 'home-job')); continue; }
     const progress = M.progress(job);
     const row = el('button', undefined, 'home-job');
     const identity = el('span', undefined, 'home-job-identity');
-    identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'), el('small', 'B.O.M. date: ' + (job.bom || '—'), 'bom-date'));
+    identity.append(el('strong', 'Job ' + job.name), el('span', job.code), el('small', job.parts.length + ' part entries'), el('small', 'B.O.M. date: ' + (job.bom || '—'), 'bom-date'),el('small',job.sourceSheet==='JobDispatched'?'Dispatched job':'Live job','source-badge'),handoverBadge(job));
     const work = el('span', undefined, 'home-job-work');
     const meter = el('progress'); meter.max = 100; MouldMotion.progress(meter, progress.percent, 'home:' + job.id);
     meter.setAttribute('aria-label', 'Work completed for ' + job.code);
@@ -83,7 +84,7 @@ function showHome(push = false) {
   if (push) { const url = new URL(location.href); url.searchParams.delete('job'); history.pushState({}, '', url); window.scrollTo({top:0,behavior:'auto'}); }
   selected = null;
   document.body.classList.add('home-view');
-  $('workspace').hidden = true; $('home').hidden = !jobs.length; $('loading').hidden = !!jobs.length;
+  $('workspace').hidden = true; $('home').hidden = !allJobs().length; $('loading').hidden = !!allJobs().length;
   $('backToHome').hidden = true;
   drawDirectory(); drawHome();
   window.MouldHandover?.refresh();
@@ -92,21 +93,21 @@ function showHome(push = false) {
 function renderRoute() {
   const wanted = new URL(location.href).searchParams.get('job');
   if (!wanted) { showHome(); return; }
-  const job = jobs.find(job => job.id === M.key(wanted));
+  const job = allJobs().find(job => job.id === M.key(wanted));
   if (job) { selectJob(job); return; }
   selected = null;
   document.body.classList.add('home-view');
   $('workspace').hidden = true; $('home').hidden = true; $('loading').hidden = false;
   $('backToHome').hidden = false;
   $('loading').querySelector('h1').textContent = 'Mould not found';
-  $('loading').querySelector('p').textContent = 'This QR identifier is not in the available records. Return to all moulds to choose another job.';
+  $('loading').querySelector('p').textContent = (!archiveState.known?'Checking dispatched moulds…':'This QR identifier is not in the available records. Return to all moulds to choose another job.');
   drawDirectory();
 }
 function setRefreshBusy(value) {
   for (const id of ['refresh', 'homeRefresh']) { $(id).disabled = value; $(id).textContent = value ? 'Refreshing…' : '↻ Refresh'; }
 }
-function drawParts(){if(!selected)return;const markKeys=MouldMarks.keys(selected);const q=$('partSearch').value.toLowerCase(),filter=$('statusFilter').value,pred={all:()=>true,process:M.isProcess,plan:M.isPlan,delay:M.isDelayed,ready:M.isReady}[filter];const rows=selected.parts.filter(p=>(p.name+' '+p.material+' '+p.vendors.join(' ')).toLowerCase().includes(q)&&pred(p));const body=$('parts');body.replaceChildren();for(const p of rows){const row=el('tr');const nameCell=el('th',undefined,'part-col manual-part');nameCell.scope='row';const nameButton=el('button',p.name,'part-name-button');nameButton.type='button';const markKey=markKeys.get(p);const applyMark=colour=>{nameCell.className='part-col manual-part'+(colour==='normal'?'':' part-mark-'+colour);nameButton.setAttribute('aria-label',p.name+'. Colour: '+colour+'. Change colour.');};applyMark(partMarks.get(markKey,M.isReady(p)));nameButton.addEventListener('click',()=>applyMark(partMarks.cycle(markKey,M.isReady(p))));nameCell.append(nameButton);row.append(nameCell);row.append(el('td',p.qty||'—','qty'),el('td',p.material||'—'));const acquiredCell=el('td');const tick=el('span',p.materialAcquired?'✓':'—',p.materialAcquired?'material-acquired ready':'material-acquired');tick.setAttribute('aria-label',p.materialAcquired?'Material acquired':'Material not acquired');acquiredCell.append(tick);row.append(acquiredCell);for(let i=0;i<3;i++){row.append(el('td',p.vendors[i]||'—','vendor'));const c=el('td');c.append(badge(p.stages[i]));row.append(c);}const r=el('td');r.append(badge(p.ready));row.append(r,el('td',p.dispatch||'—'),el('td',p.due||'—'));body.append(row);}if(!rows.length){const row=el('tr'),c=el('td','No parts match these filters.','empty');c.colSpan=13;row.append(c);body.append(row);}$('visibleCount').textContent=rows.length+' of '+selected.parts.length+' parts';}
-function fail(message){sheetLive=false;window.MouldHandover?.refresh();busy=false;setRefreshBusy(false);$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';$('homeSyncText').textContent=$('syncText').textContent;notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!jobs.length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
+function drawParts(){if(!selected)return;const markKeys=MouldMarks.keys(selected);const q=$('partSearch').value.toLowerCase(),filter=$('statusFilter').value,pred={all:()=>true,process:M.isProcess,plan:M.isPlan,delay:M.isDelayed,ready:M.isReady,green:p=>partMarks.get(markKeys.get(p),M.isReady(p))==='green'}[filter];const rows=selected.parts.filter(p=>(p.name+' '+p.material+' '+p.vendors.join(' ')).toLowerCase().includes(q)&&pred(p));const body=$('parts');body.replaceChildren();for(const p of rows){const row=el('tr');const delivered=handedOver(selected,markKeys.get(p));if(delivered)row.className='handed-over';const nameCell=el('th',undefined,'part-col manual-part');nameCell.scope='row';const nameButton=el('button',p.name,'part-name-button');nameButton.type='button';nameButton.disabled=delivered;const markKey=markKeys.get(p);const applyMark=colour=>{nameCell.className='part-col manual-part'+(colour==='normal'?'':' part-mark-'+colour);nameButton.setAttribute('aria-label',p.name+'. Colour: '+colour+'. Change colour.');};applyMark(partMarks.get(markKey,M.isReady(p)));nameButton.addEventListener('click',()=>{applyMark(partMarks.cycle(markKey,M.isReady(p)));window.MouldHandover?.refresh();if(filter==='green')drawParts();});nameCell.append(nameButton);row.append(nameCell);row.append(el('td',p.qty||'—','qty'),el('td',p.material||'—'));const acquiredCell=el('td');const tick=el('span',p.materialAcquired?'✓':'—',p.materialAcquired?'material-acquired ready':'material-acquired');tick.setAttribute('aria-label',p.materialAcquired?'Material acquired':'Material not acquired');acquiredCell.append(tick);row.append(acquiredCell);for(let i=0;i<3;i++){row.append(el('td',p.vendors[i]||'—','vendor'));const c=el('td');c.append(badge(p.stages[i]));row.append(c);}const r=el('td');r.append(badge(p.ready));row.append(r,el('td',p.dispatch||'—'),el('td',p.due||'—'));body.append(row);}if(!rows.length){const row=el('tr'),c=el('td','No parts match these filters.','empty');c.colSpan=13;row.append(c);body.append(row);}$('visibleCount').textContent=rows.length+' of '+selected.parts.length+' parts';}
+function fail(message){sheetLive=false;window.MouldHandover?.refresh();busy=false;setRefreshBusy(false);$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';$('homeSyncText').textContent=$('syncText').textContent;notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!allJobs().length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
 function applyData(nextJobs, when, saved = false) {
   jobs = nextJobs;
   sheetLive = !saved;
@@ -170,6 +171,8 @@ window.addEventListener('popstate', renderRoute);
 $('backToHome').addEventListener('click', () => showHome(true));
 $('homeSearch').addEventListener('input', drawHome);
 $('homeRefresh').addEventListener('click', load);
+$('homeSource').addEventListener('change',drawHome);
+for(const state of ['all','ongoing','partial','full'])$('homeStatus'+(state==='all'?'All':state)).addEventListener('click',()=>{homeHandoverFilter=state;drawHome();});
 $('clearSaved').addEventListener('click', () => {
   let cleared = false;
   try { cleared = MouldSnapshot.clear(localStorage); } catch {}

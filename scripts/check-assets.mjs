@@ -11,7 +11,7 @@ for (const match of html.matchAll(/(?:src|href)="([^"?#]+)(?:[?#][^"]*)?"/g)) {
   if (/^(https?:|#|\.\/$)/.test(match[1])) continue;
   await access(resolve(root, 'dist', match[1].replace(/^\//, '')));
 }
-for (const name of ['app', 'model', 'snapshot', 'pwa', 'handover', 'handover-ui', 'motion', 'part-marks', 'job-status', 'job-status-ui', 'print', 'batch', 'batch-ui', 'qrcode', 'sw']) {
+for (const name of ['app', 'model', 'snapshot', 'pwa', 'handover', 'handover-ui', 'handover-state', 'handover-sync', 'handover-config', 'motion', 'part-marks', 'job-status', 'job-status-ui', 'print', 'batch', 'batch-ui', 'qrcode', 'sw']) {
   const code = await readFile(resolve(root, 'dist', name + '.js'), 'utf8');
   new Script(code, { filename: name + '.js' });
 }

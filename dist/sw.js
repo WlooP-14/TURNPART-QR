@@ -1,10 +1,10 @@
 'use strict';
 // Increment the version whenever an app-shell file changes.
 const CACHE_PREFIX = 'mould-crate-shell-';
-const CACHE = CACHE_PREFIX + 'v24';
+const CACHE = CACHE_PREFIX + 'v26';
 const SHELL = [
   '/', '/index.html', '/style.css', '/app.js', '/model.js', '/snapshot.js',
-  '/handover.js', '/handover-ui.js', '/vendor/pdf-lib.min.js', '/pwa.js', '/motion.js', '/part-marks.js', '/job-status.js', '/job-status-ui.js', '/print.js', '/batch.js', '/batch-ui.js', '/qrcode.js', '/manifest.webmanifest',
+  '/handover-state.js', '/handover-config.js', '/handover-sync.js', '/handover.js', '/handover-ui.js', '/vendor/pdf-lib.min.js', '/pwa.js', '/motion.js', '/part-marks.js', '/job-status.js', '/job-status-ui.js', '/print.js', '/batch.js', '/batch-ui.js', '/qrcode.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png',
   '/icons/apple-touch-icon.png', '/icons/favicon.svg'
 ];

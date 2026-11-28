@@ -72,6 +72,13 @@ test('JobDispatched retains complete grouped turnparts and its source for handov
   assert.throws(()=>Model.parse(invalid,{sheet:'JobDispatched',allowEmpty:true}));
 });
 
+test('both source tables have separate offline snapshots and clearing removes both',()=>{
+ const cache=storage();Snapshot.save(cache,table(),new Date());Snapshot.save(cache,table(),new Date(),'JobDispatched');
+ assert.equal(Snapshot.read(cache,Model).jobs[0].sourceSheet,'Sheet5');
+ assert.equal(Snapshot.read(cache,Model,'JobDispatched').jobs[0].sourceSheet,'JobDispatched');
+ Snapshot.clear(cache);assert.equal(Snapshot.read(cache,Model),null);assert.equal(Snapshot.read(cache,Model,'JobDispatched'),null);
+});
+
 function worker() {
   const handlers = {}, buckets = new Map(), network = [], deleted = [];
   let claimed = 0, skipped = 0;

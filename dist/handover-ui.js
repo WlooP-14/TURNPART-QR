@@ -1,7 +1,12 @@
 'use strict';
 (() => {
   const H=MouldHandoverModel, modal=$('handoverDialog'), pad=$('signatureDialog'), canvas=$('signatureCanvas'), ctx=canvas.getContext('2d');
-  let source=null, draft=null, signature=null, invalid=false, drawing=false, last=null, distance=0;
+  let source=null, draft=null, signature=null, invalid=false, drawing=false, last=null, distance=0,mode='full',partIndexes=[];
+  const greenParts=job=>{
+    if(!job)return [];
+    const keys=MouldMarks.keys(job);
+    return job.parts.flatMap((part,index)=>partMarks.get(keys.get(part),M.isReady(part))==='green'&&!handedOver(job,keys.get(part))?[index]:[]);
+  };
   const archived=job=>job?.sourceSheet==='JobDispatched';
   const current=job=>(archived(job)?archiveState.jobs||[]:jobs).find(entry=>entry.id===job?.id);
   const fresh=(job=source||selected)=>{
@@ -12,16 +17,21 @@
   function validCurrent(){
     if(!fresh())throw Error('Refresh the sheet online before completing the handover.');
     const latest=current(source);
-    if(!H.eligible(latest)||H.fingerprint(latest)!==H.fingerprint(source))throw Error('The mould’s parts or readiness changed. Close this proof and start again.');
+    if(!H.eligible(latest,mode,partIndexes)||H.fingerprint(latest)!==H.fingerprint(source))throw Error('The mould’s parts or readiness changed. Close this proof and start again.');
+    if(mode==='partial'&&!draft?.saving&&!draft?.recorded&&JSON.stringify(greenParts(latest))!==JSON.stringify(partIndexes))throw Error('The green part selection changed. Close this proof and start again.');
     return latest;
   }
   function refresh(){
     $('handoverButton').hidden=!H.eligible(selected);
     $('handoverButton').disabled=!fresh(selected);
     $('handoverButton').title=fresh(selected)?'':'Refresh the sheet online before handover';
+    const green=greenParts(selected);
+    $('partialHandoverButton').hidden=!green.length;
+    $('partialHandoverButton').textContent='Partial handover ('+green.length+')';
+    $('partialHandoverButton').disabled=!fresh(selected);
     if(modal.open&&source){
       const latest=current(source);
-      if(!H.eligible(latest)||H.fingerprint(latest)!==H.fingerprint(source)){
+      if(!H.eligible(latest,mode,partIndexes)||H.fingerprint(latest)!==H.fingerprint(source)||(mode==='partial'&&!draft?.saving&&!draft?.recorded&&JSON.stringify(greenParts(latest))!==JSON.stringify(partIndexes))){
         invalid=true;signature=null;$('saveHandover').disabled=true;$('signProof').disabled=true;
         error('The mould’s parts or readiness changed. Close this proof and start again.');
       }
@@ -29,12 +39,18 @@
   }
   window.MouldHandover={refresh,start,canStart:job=>H.eligible(job)&&fresh(job),usesArchive:()=>modal.open&&archived(source)};
   function step(name){for(const id of ['handoverAsk','handoverForm','handoverPreview'])$(id).hidden=id!==name;error('');}
-  function start(job){
-    if(!H.eligible(job)||!fresh(job))return;
+  function start(job,nextMode='full'){
+    const indexes=nextMode==='partial'?greenParts(job):[];
+    if(!H.eligible(job,nextMode,indexes)||!fresh(job))return;
+    mode=nextMode;partIndexes=indexes;
     source=structuredClone(job);draft=null;signature=null;invalid=false;
-    $('handoverMould').textContent=source.code;$('handoverForm').reset();step('handoverAsk');modal.showModal();
+    $('handoverMould').textContent=source.code;$('handoverForm').reset();
+    $('handoverQuestion').textContent=mode==='partial'?'Handover these '+partIndexes.length+' green turnparts?':'Handover these turnparts?';
+    $('handoverReviewText').textContent=mode==='partial'?'I have checked the selected green turnparts and confirm the listed quantities are ready for assembly.':'I have checked every turnpart and confirm the complete set is ready for assembly.';
+    step('handoverAsk');modal.showModal();
   }
   $('handoverButton').addEventListener('click',()=>start(selected));
+  $('partialHandoverButton').addEventListener('click',()=>start(selected,'partial'));
   $('closeHandover').addEventListener('click',()=>modal.close());
   $('cancelHandover').addEventListener('click',()=>modal.close());
   $('confirmHandover').addEventListener('click',()=>step('handoverForm'));
@@ -42,10 +58,15 @@
     event.preventDefault();
     try{
       if(invalid)throw Error('Close this proof and start again with the latest mould data.');
-      validCurrent();draft=H.proof(source,$('dieMakerName').value,$('senderName').value,$('handoverReviewed').checked);
+      validCurrent();draft=H.proof(source,$('dieMakerName').value,$('senderName').value,$('handoverReviewed').checked,new Date(),{mode,partIndexes});
       signature=null;$('signProof').disabled=false;$('saveHandover').disabled=true;
       $('proofMould').textContent=draft.code;$('proofDate').textContent=draft.date;$('proofBom').textContent=draft.bom;
       $('proofSender').textContent=draft.sender;$('proofMaker').textContent=draft.maker;
+      $('proofHeading').textContent=mode==='partial'?'PARTIAL TURNPART HANDOVER PROOF':'TURNPART HANDOVER PROOF';
+      $('proofParts').hidden=mode!=='partial';
+      $('proofPartsRows').replaceChildren(...(draft.partList||[]).map(part=>{
+        const row=el('tr');row.append(el('td',part.name),el('td',part.qty));return row;
+      }));
       $('proofBody').replaceChildren(...draft.paragraphRuns.map(runs=>{
         const paragraph=el('p');
         paragraph.append(...runs.map(run=>el(run.bold?'strong':'span',run.text)));
@@ -87,42 +108,68 @@
   });
   async function makePdf(draft,signature){
     await document.fonts?.ready;
-    const page=document.createElement('canvas');page.width=1654;page.height=2339;
-    const c=page.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,page.width,page.height);
-    const left=145,width=1364;
+    const pages=[],left=145,width=1364;let page,c;
     const font=(size,bold)=>`${bold?'700':'400'} ${size}px "Times New Roman", Times, serif`;
     function text(value,y,size=28,bold=false){c.fillStyle='#1e2525';c.font=font(size,bold);c.fillText(value,left,y);}
+    function newPage(continued=false){
+      page=document.createElement('canvas');page.width=1654;page.height=2339;pages.push(page);c=page.getContext('2d');
+      c.fillStyle='#fff';c.fillRect(0,0,page.width,page.height);
+      text('MOULD & CRATE',170,26,true);
+      text(draft.mode==='partial'?'PARTIAL TURNPART HANDOVER PROOF':'TURNPART HANDOVER PROOF',255,draft.mode==='partial'?40:46,true);
+      c.fillStyle='#164e50';c.fillRect(left,290,width,5);
+      if(continued){text(draft.code+' · '+draft.date+' · Continued',350,27,true);return 425;}
+      return 365;
+    }
+    const measure=(value,bold,size)=>{c.font=font(size,bold);return c.measureText(value).width;};
+    function drawLine(runs,x,y,size,lineWidth){
+      const fullWidth=runs.reduce((sum,run)=>sum+measure(run.text,run.bold,size),0),scale=Math.min(1,lineWidth/fullWidth);
+      c.fillStyle='#1e2525';c.save();c.translate(x,y);c.scale(scale,1);let offset=0;
+      for(const run of runs){c.font=font(size,run.bold);c.fillText(run.text,offset,0);offset+=measure(run.text,run.bold,size);}
+      c.restore();
+    }
     function wrap(runs,y,size=32){
-      const measure=(value,bold)=>{c.font=font(size,bold);return c.measureText(value).width;};
-      const lines=H.wrapRuns(runs,width,measure);c.fillStyle='#1e2525';
+      const lines=H.wrapRuns(runs,width,(value,bold)=>measure(value,bold,size));
       for(const line of lines){
-        const fullWidth=line.reduce((sum,run)=>sum+measure(run.text,run.bold),0);
-        // A single unusually long identifier stays whole and scales to the text area.
-        const scale=Math.min(1,width/fullWidth);let x=0;
-        c.save();c.translate(left,y);c.scale(scale,1);
-        for(const run of line){c.font=font(size,run.bold);c.fillText(run.text,x,0);x+=measure(run.text,run.bold);}
-        c.restore();y+=size*1.5;
+        if(draft.mode==='partial'&&y>2080)y=newPage(true);
+        drawLine(line,left,y,size,width);y+=size*1.5;
       }
       return y+20;
     }
-    text('MOULD & CRATE',170,26,true);text('TURNPART HANDOVER PROOF',255,46,true);
-    c.fillStyle='#164e50';c.fillRect(left,290,width,5);
-    let y=365;
+    let y=newPage();
     for(const [label,value] of [['Mould',draft.code],['B.O.M. date',draft.bom],['Handover date',draft.date],['Handed over by',draft.sender],['Received by (Die maker)',draft.maker]])y=wrap([{text:label+': ',bold:false},{text:value,bold:true}],y,30);
     y+=30;for(const runs of draft.paragraphRuns)y=wrap(runs,y)+20;
-    if(y>1850)throw Error('The proof is too long to fit. Please shorten the names.');
+    if(draft.mode==='partial'){
+      function tableHeader(){
+        if(y>1950)y=newPage(true);
+        text('Turnparts handed over',y,30,true);y+=35;
+        c.fillStyle='#eef2ef';c.fillRect(left,y,width,60);c.fillStyle='#1e2525';c.font=font(29,true);
+        c.fillText('Part name',left+18,y+40);c.fillText('Quantity',left+1160,y+40);y+=60;
+      }
+      tableHeader();
+      for(const part of draft.partList){
+        const lines=H.wrapRuns([{text:part.name,bold:false}],1090,(value,bold)=>measure(value,bold,30)),height=Math.max(65,lines.length*45+22);
+        if(y+height>2070){y=newPage(true);tableHeader();}
+        for(let index=0;index<lines.length;index++)drawLine(lines[index],left+18,y+43+index*45,30,1090);
+        drawLine([{text:String(part.qty),bold:true}],left+1160,y+43,30,180);
+        y+=height;c.fillStyle='#ccd4cf';c.fillRect(left,y,width,1);
+      }
+      y+=35;if(y+430>2080)y=newPage(true);
+    }else if(y>1850)throw Error('The proof is too long to fit. Please shorten the names.');
     text('Die maker’s signature',y+35,27,true);
     const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Could not prepare the signature.'));image.src=signature;});
-    const signatureScale=Math.min(670/image.width,251/image.height);
-    c.drawImage(image,left,y+60,image.width*signatureScale,image.height*signatureScale);
+    const signatureScale=Math.min(670/image.width,251/image.height);c.drawImage(image,left,y+60,image.width*signatureScale,image.height*signatureScale);
     wrap([{text:draft.maker,bold:true}],y+355,27);text(draft.date,y+405,25,true);
-    const pdf=await PDFLib.PDFDocument.create();const img=await pdf.embedPng(page.toDataURL('image/png'));const sheet=pdf.addPage([595.28,841.89]);sheet.drawImage(img,{x:0,y:0,width:595.28,height:841.89});
+    const pdf=await PDFLib.PDFDocument.create();
+    for(const [index,surface] of pages.entries()){
+      const footer=surface.getContext('2d');footer.fillStyle='#65716b';footer.font=font(22,false);footer.fillText(draft.code+' · '+(index+1)+' / '+pages.length,left,2265);
+      const image=await pdf.embedPng(surface.toDataURL('image/png')),sheet=pdf.addPage([595.28,841.89]);sheet.drawImage(image,{x:0,y:0,width:595.28,height:841.89});
+    }
     pdf.setTitle(draft.filename.replace(/\.pdf$/,''));pdf.setSubject('Turnparts-only handover acknowledgement');return pdf.save();
   }
   $('saveHandover').addEventListener('click',async()=>{
     try{
       validCurrent();if(invalid||!draft||!signature)throw Error('The Die maker must sign before the PDF can be saved.');
-      const today=H.proof(source,draft.maker,draft.sender,true);
+      const today=H.proof(source,draft.maker,draft.sender,true,new Date(),{mode,partIndexes});
       if(today.date!==draft.date)throw Error('The date has changed. Prepare and sign a new proof for today.');
       $('saveHandover').disabled=true;$('saveHandover').textContent='Preparing PDF…';
       const preparedDraft=draft,preparedSignature=signature;
@@ -130,7 +177,10 @@
       if(invalid||draft!==preparedDraft||signature!==preparedSignature)throw Error('The proof changed while preparing the PDF. Please start again.');
       const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),link=document.createElement('a');
       link.href=url;link.download=draft.filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-      error('Your signed PDF is ready for download.');
+      $('saveHandover').textContent='Saving handover…';
+      preparedDraft.saving=true;
+      try{await MouldHandoverRecords.record(source,preparedDraft);preparedDraft.recorded=true;}finally{preparedDraft.saving=false;}
+      error('Your signed PDF is ready for download. Handover saved for all devices.');
     }catch(e){error(e.message);}finally{$('saveHandover').textContent='Save signed PDF';$('saveHandover').disabled=invalid||!signature;}
   });
   modal.addEventListener('close',()=>{source=null;draft=null;signature=null;$('proofSignature').removeAttribute('src');clearPad();});

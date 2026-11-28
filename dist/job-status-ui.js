@@ -38,6 +38,7 @@
         const next = MouldStatus.parseArchive(data.table);
         const nextJobs=M.parse(data.table,{sheet:'JobDispatched',allowEmpty:true});
         completed = next;archiveJobs=nextJobs;live=true;fetchedAt = new Date(); known = true;
+        try{MouldSnapshot.save(localStorage,data.table,fetchedAt,'JobDispatched');}catch{}
         try { localStorage.setItem(cacheKey, JSON.stringify({ codes: completed, fetchedAt: fetchedAt.toISOString() })); } catch {}
         finish(); publish(); $('jobStatusNotice').textContent = 'Updated ' + time(fetchedAt); render();
       } catch (error) { failed(error.message); }
@@ -54,17 +55,19 @@
       completed = MouldStatus.codes(saved.codes); fetchedAt = date; known = true;
     }
   } catch {}
-  publish();
-  function searching() { return $('homeSearch').value.trim() || $('jobSearch').value.trim(); }
+  try{
+    const saved=MouldSnapshot.read(localStorage,M,'JobDispatched');
+    if(saved){archiveJobs=saved.jobs;completed=archiveJobs.map(job=>job.code);fetchedAt=saved.fetchedAt;known=true;}
+  }catch{}
+  publish();refresh();
   function refreshSearch() {
-    const needed=searching()||modal.open||window.MouldHandover?.usesArchive();
-    if (needed && !document.hidden && navigator.onLine !== false && Date.now() - lastAttempt >= 15000) refresh();
-    else if (needed && navigator.onLine === false) fail('You are offline. Finished jobs may be out of date.');
+    if (!document.hidden && navigator.onLine !== false && Date.now() - lastAttempt >= 15000) refresh();
+    else if (navigator.onLine === false) fail('You are offline. Finished jobs may be out of date.');
   }
   $('homeSearch').addEventListener('input', refreshSearch);
   $('jobSearch').addEventListener('input', refreshSearch);
-  $('homeRefresh').addEventListener('click', () => { if (searching()) refresh(); });
-  $('refresh').addEventListener('click', () => { if (searching()) refresh(); });
+  $('homeRefresh').addEventListener('click', refresh);
+  $('refresh').addEventListener('click', refresh);
   setInterval(refreshSearch, 15000);
   $('openJobStatus').addEventListener('click', () => {
     filter.value = 'done'; search.value = ''; render(); modal.showModal(); refresh();
@@ -72,7 +75,7 @@
   $('closeJobStatus').addEventListener('click', () => modal.close());
   search.addEventListener('input', render); filter.addEventListener('change', render);
   $('refreshJobStatus').addEventListener('click', refresh);
-  window.addEventListener('online', () => { if (modal.open || searching()) refresh(); });
+  window.addEventListener('online', refresh);
   window.addEventListener('offline',()=>{live=false;publish();});
   // Keep the device-data clearing action consistent with the completed-name cache.
   $('clearSaved').addEventListener('click', () => { try { localStorage.removeItem(cacheKey); } catch {} });

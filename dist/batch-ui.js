@@ -16,7 +16,7 @@
     return label;
   }
   function renderPreview() {
-    const entries = [...choices].map(([id, copies]) => ({ job: jobs.find(job => job.id === id), copies })).filter(entry => entry.job);
+    const entries = [...choices].map(([id, copies]) => ({ job: allJobs().find(job => job.id === id), copies })).filter(entry => entry.job);
     currentPlan = MouldBatch.plan(entries);
     const preview = $('batchPreview'); preview.replaceChildren();
     let number = 0;
@@ -33,7 +33,7 @@
   }
   function renderChoices() {
     const query = search.value.toLowerCase(); list.replaceChildren();
-    for (const job of jobs.filter(job => job.code.toLowerCase().includes(query))) {
+    for (const job of allJobs().filter(job => job.code.toLowerCase().includes(query))) {
       const row = el('div', undefined, 'batch-choice');
       const label = el('label'), checkbox = el('input');
       checkbox.type = 'checkbox'; checkbox.checked = choices.has(job.id);
@@ -65,7 +65,7 @@
   search.addEventListener('input', renderChoices);
   $('batchSelectAll').addEventListener('click', () => {
     const query = search.value.toLowerCase();
-    for (const job of jobs.filter(job => job.code.toLowerCase().includes(query))) if (!choices.has(job.id)) choices.set(job.id, 1);
+    for (const job of allJobs().filter(job => job.code.toLowerCase().includes(query))) if (!choices.has(job.id)) choices.set(job.id, 1);
     renderChoices(); renderPreview();
   });
   $('batchClear').addEventListener('click', () => { choices.clear(); renderChoices(); renderPreview(); });
