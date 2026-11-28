@@ -19,4 +19,9 @@ const sw = await readFile(resolve(root, 'dist/sw.js'), 'utf8');
 for (const match of sw.matchAll(/'(\/[^']*)'/g)) {
   await access(resolve(root, 'dist', match[1] === '/' ? 'index.html' : match[1].slice(1)));
 }
+for (const name of ['model','part-marks']) {
+  const client=await readFile(resolve(root,'dist',name+'.js'),'utf8');
+  const server=await readFile(resolve(root,'supabase/functions/_shared',name+'.js'),'utf8');
+  if(client!==server)throw Error('Redeploy the handover function with the current '+name+' rules.');
+}
 console.log('Build ready: PWA manifest, icons, shell files, HTML references, and JavaScript checked. Output: dist/');

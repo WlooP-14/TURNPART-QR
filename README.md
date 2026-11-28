@@ -4,13 +4,13 @@ An installable PWA for checking mould-part progress and documenting turnpart han
 
 ## Architecture
 
-- **Data:** both `Sheet5` and `JobDispatched` in the existing Google Sheet. Shared handovers use a separate log tab through a deployed Google Apps Script web app.
+- **Data:** both `Sheet5` and `JobDispatched` in the existing Google Sheet. Shared handovers use a dedicated table and validating Edge Function in the existing `mapel_storeroom` Supabase project.
 - **Frontend:** static HTML/CSS/JavaScript; no framework runtime or server required.
 - **Hosting:** Vercel, with automatic deployment from GitHub.
 - **PWA:** manifest, local icons, service worker, install help, and saved job records for offline viewing.
-- **Supabase:** not used. Shared handover marks are stored in the existing spreadsheet after the Apps Script connection is deployed and configured.
+- **Supabase:** the existing `mapel_storeroom` project stores shared marks in `turnpart_handover_records`. Its `store_*` tables, Auth settings and policies are not changed.
 
-The approved Vercel audience is **anyone with the link**. All jobs in the mould directory can be browsed. A QR identifier is a navigation key, not access control. Vercel does not inherit the previous private Sites preview permissions. No API keys or environment variables are needed. Shared saving needs the public Apps Script web app URL in `dist/handover-config.js`; source data viewing and PDF generation continue without it.
+The approved Vercel audience is **anyone with the link**. All jobs in the mould directory can be browsed. A QR identifier is a navigation key, not access control. Vercel does not inherit the previous private Sites preview permissions. No Vercel environment variables are needed. `dist/handover-config.js` contains browser-safe Supabase publishable/anon credentials only. The service-role credential stays inside the Edge Function environment and is never bundled in this app.
 
 ## Run and check
 
@@ -51,7 +51,7 @@ The overview, directory, part table, direct QR routes and batch labels include b
 
 The home filters distinguish **Ongoing**, **Partially handed over**, and **Fully handed over**, independently of machining percentages or the source sheet's dispatched state. Shared records cover stable part-entry keys; repeated partial handovers count each entry only once. Covering every current part entry gives Fully handed over, including several partial handovers. New or changed part identities are not silently covered by old records. Unavailable shared status is never assumed to mean Ongoing.
 
-Shared saving needs the one-time setup in [google-apps-script/SETUP.md](google-apps-script/SETUP.md). Put its `/exec` URL in `dist/handover-config.js` and bump the service-worker version. The bridge appends validated requests to `TURNPART_HANDOVERS` in the existing spreadsheet without changing source process columns, readiness, or formatting. The app derives permanent whole-row lavender shading from that log across devices and reloads. Part keys do not depend on source row numbers. No Supabase service is used.
+Shared saving is configured in the existing Supabase project `mapel_storeroom` (`slgcoiufhestfbrrcbuz`). The dedicated `turnpart_handover_records` table allows public reads of shared part marks, with RLS enabled and all browser insert/update/delete permissions revoked. The JWT-protected `turnpart-handover` Edge Function checks each write against the current Google Sheet. Full handover requires every part ready; partial handover accepts an explicit reviewed selection on any mould, including 100%-complete moulds. The function stores no names, signatures, or PDFs. Source process columns, readiness, formatting, and existing storeroom tables are not modified. The app derives permanent whole-row lavender shading from these records across devices and reloads. Part keys do not depend on source row numbers. No Apps Script deployment is needed. See [supabase/README.md](supabase/README.md) for backend details.
 
 ## Interface motion
 
@@ -79,7 +79,7 @@ Print actions suggest a PDF filename containing the unique mould numbers and the
 
 Both proofs use Times New Roman (with Times/serif fallbacks), bold important details, whole-word wrapping, and the Die maker's actual freehand signature. PDFs use A4; long partial lists continue onto more pages with table headings and the signature on the final page. Partial filenames include `partial turnpart handover proof.pdf`. Names, signatures and PDF bytes stay on the device and are cleared from the form on closing; none are sent to the shared log.
 
-A recent online fetch of the job's own source is required. Changed parts/readiness, changed green selection or a new date require preparing/signing again. After a signed PDF is generated and its browser download triggered, a configured bridge records the part keys using an idempotent request ID. Permanent shading and shared home status appear only after the log confirms the write. Failed/offline writes remain visibly pending and retry without duplicates. Pending packets contain no names, signature, or PDF. Without a configured bridge, PDF generation still works but shared success is not claimed, and old PDFs are not queued for later automatic handover. Clearing saved job data does not delete shared permanent handover records.
+A recent online fetch of the job's own source is required. Changed parts/readiness, changed green selection or a new date require preparing/signing again. After a signed PDF is generated and its browser download triggered, the Supabase function records the part keys using an idempotent request ID. Permanent shading and shared home status appear only after the log confirms the write. Failed/offline writes remain visibly pending and retry without duplicates. Pending packets contain no names, signature, or PDF. If the shared connection is unavailable, success is not claimed until a record is confirmed. Previously downloaded PDFs are not retroactively imported as handovers. Clearing saved job data does not delete shared permanent handover records.
 
 ## Install and use offline
 

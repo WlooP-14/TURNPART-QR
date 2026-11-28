@@ -1,0 +1,4 @@
+project_id = "turnpart-qr"
+
+[functions.turnpart-handover]
+verify_jwt = true

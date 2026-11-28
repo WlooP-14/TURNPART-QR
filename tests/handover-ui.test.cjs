@@ -77,10 +77,11 @@ test('dispatched handovers use archive freshness and archive parts, independentl
 });
 test('partial handover follows green tap selection, excludes handed-over rows and invalidates a changed selection',()=>{
  const a=ui(),api=a.sandbox.window.MouldHandover;
- a.job.parts.push({...a.job.parts[0],name:'BUSH',qty:'2'});
+ a.job.parts[0].stages=['DONE','DONE','DONE'];a.job.parts.push({...a.job.parts[0],name:'BUSH',qty:'2'});
+ assert.equal(a.sandbox.M.progress(a.job).percent,100);
  const keys=[...Marks.keys(a.job).values()];
  for(const key of keys){a.sandbox.partMarks.cycle(key,true);a.sandbox.partMarks.cycle(key,true);}
- a.sandbox.handedOver=(_,key)=>key===keys[1];a.refresh();assert.equal(a.get('partialHandoverButton').textContent,'Partial handover (1)');
+ a.sandbox.handedOver=(_,key)=>key===keys[1];a.refresh();assert.equal(a.get('handoverButton').hidden,false);assert.equal(a.get('partialHandoverButton').hidden,false);assert.equal(a.get('partialHandoverButton').textContent,'Partial handover (1)');
  a.prepare(null,'partial');assert.equal(a.get('proofParts').hidden,false);
  const rows=a.get('proofPartsRows').children;assert.equal(rows.length,1);assert.equal(rows[0].children[0].textContent,'PIN');assert.equal(rows[0].children[1].textContent,4);
  a.sandbox.partMarks.cycle(keys[0],true);a.refresh();assert.equal(a.get('signProof').disabled,true);
