@@ -1,6 +1,7 @@
 'use strict';
 const M=MouldModel,$=id=>document.getElementById(id);
 let jobs=[],selected=null,fetched=null,activeScript=null,timer=null,request=0,busy=false;
+let sheetLive=false;
 let archiveState={codes:[],known:false,busy:false,error:'',fetchedAt:null};
 let partMarks;
 try{partMarks=MouldMarks.create(localStorage);}catch{partMarks=MouldMarks.create(null);}
@@ -46,7 +47,7 @@ function drawDirectory() {
   }
   if (!visible.length) list.append(el('p', 'No matching moulds.', 'muted'));
 }
-function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  B.O.M. date: '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();if(animateView)MouldMotion.enter($('workspace'));}
+function selectJob(j,push=false){const animateView=selected?.id!==j.id||$('workspace').hidden;if(push||selected?.id!==j.id)$('mouldDropdown').open=false;$('selectedMouldLabel').textContent=j.code;$('selectedMouldProgress').textContent=M.progress(j).percent+'%';document.body.classList.remove('home-view');$('home').hidden=true;$('backToHome').hidden=false;selected=j;if(push){const u=new URL(location.href);u.searchParams.set('job',j.id);history.pushState({},'',u);window.scrollTo({top:0,behavior:'auto'});$('partSearch').value='';$('statusFilter').value='all';}drawDirectory();$('loading').hidden=true;$('workspace').hidden=false;$('jobTitle').textContent='Job '+j.name;$('jobSerial').textContent=j.code;$('jobMeta').textContent='Customer '+j.customer+'  ·  Received '+j.received+'  ·  B.O.M. date: '+(j.bom||'—')+'  ·  Trial (T0) '+(j.trial||'—');$('totalParts').textContent=j.parts.length;$('inProcess').textContent=j.parts.filter(M.isProcess).length;$('toPlan').textContent=j.parts.filter(M.isPlan).length;const ready=j.parts.filter(M.isReady).length;$('readyCount').textContent=ready+' / '+j.parts.length;$('readyText').textContent=ready===j.parts.length?'All part entries marked ready':(j.parts.length-ready)+' still to be marked ready';drawParts();window.MouldHandover?.refresh();if(animateView)MouldMotion.enter($('workspace'));}
 function drawHome() {
   const query = $('homeSearch').value, list = $('homeJobs');
   const visible = M.searchJobs(jobs, archiveState.codes, query);
@@ -77,6 +78,7 @@ function showHome(push = false) {
   $('workspace').hidden = true; $('home').hidden = !jobs.length; $('loading').hidden = !!jobs.length;
   $('backToHome').hidden = true;
   drawDirectory(); drawHome();
+  window.MouldHandover?.refresh();
   if (animateView) MouldMotion.enter($('home'));
 }
 function renderRoute() {
@@ -96,9 +98,10 @@ function setRefreshBusy(value) {
   for (const id of ['refresh', 'homeRefresh']) { $(id).disabled = value; $(id).textContent = value ? 'Refreshing…' : '↻ Refresh'; }
 }
 function drawParts(){if(!selected)return;const markKeys=MouldMarks.keys(selected);const q=$('partSearch').value.toLowerCase(),filter=$('statusFilter').value,pred={all:()=>true,process:M.isProcess,plan:M.isPlan,delay:M.isDelayed,ready:M.isReady}[filter];const rows=selected.parts.filter(p=>(p.name+' '+p.material+' '+p.vendors.join(' ')).toLowerCase().includes(q)&&pred(p));const body=$('parts');body.replaceChildren();for(const p of rows){const row=el('tr');const nameCell=el('th',undefined,'part-col manual-part');nameCell.scope='row';const nameButton=el('button',p.name,'part-name-button');nameButton.type='button';const markKey=markKeys.get(p);const applyMark=colour=>{nameCell.className='part-col manual-part'+(colour==='normal'?'':' part-mark-'+colour);nameButton.setAttribute('aria-label',p.name+'. Colour: '+colour+'. Change colour.');};applyMark(partMarks.get(markKey,M.isReady(p)));nameButton.addEventListener('click',()=>applyMark(partMarks.cycle(markKey,M.isReady(p))));nameCell.append(nameButton);row.append(nameCell);row.append(el('td',p.qty||'—','qty'),el('td',p.material||'—'));const acquiredCell=el('td');const tick=el('span',p.materialAcquired?'✓':'—',p.materialAcquired?'material-acquired ready':'material-acquired');tick.setAttribute('aria-label',p.materialAcquired?'Material acquired':'Material not acquired');acquiredCell.append(tick);row.append(acquiredCell);for(let i=0;i<3;i++){row.append(el('td',p.vendors[i]||'—','vendor'));const c=el('td');c.append(badge(p.stages[i]));row.append(c);}const r=el('td');r.append(badge(p.ready));row.append(r,el('td',p.dispatch||'—'),el('td',p.due||'—'));body.append(row);}if(!rows.length){const row=el('tr'),c=el('td','No parts match these filters.','empty');c.colSpan=13;row.append(c);body.append(row);}$('visibleCount').textContent=rows.length+' of '+selected.parts.length+' parts';}
-function fail(message){busy=false;setRefreshBusy(false);$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';$('homeSyncText').textContent=$('syncText').textContent;notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!jobs.length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
+function fail(message){sheetLive=false;window.MouldHandover?.refresh();busy=false;setRefreshBusy(false);$('syncDot').classList.add('offline');$('syncText').textContent=fetched?'Last fetched '+time(fetched)+' · stale':'Sheet unavailable';$('homeSyncText').textContent=$('syncText').textContent;notice(message+(fetched?' Showing previously fetched data; statuses may have changed.':''),true);if(!jobs.length){$('loading').hidden=false;$('loading').querySelector('h1').textContent='Unable to load the sheet';$('loading').querySelector('p').textContent='Use Refresh to try again. The source sheet must remain readable to the tracker.';const btn=el('button','Retry connection','primary');btn.addEventListener('click',load);if(!$('loading').querySelector('button'))$('loading').append(btn);}}
 function applyData(nextJobs, when, saved = false) {
   jobs = nextJobs;
+  sheetLive = !saved;
   fetched = when;
   $('syncText').textContent = (saved ? 'Saved copy · ' : 'Fetched ') + time(fetched);
   $('syncDot').classList.toggle('offline', saved);
@@ -166,6 +169,7 @@ $('clearSaved').addEventListener('click', () => {
 });
 window.addEventListener('online', load);
 window.addEventListener('offline', () => {
+  sheetLive=false;window.MouldHandover?.refresh();
   $('syncDot').classList.add('offline');
   $('syncText').textContent = fetched ? 'Offline · saved ' + time(fetched) : 'Offline';
   $('homeSyncText').textContent = $('syncText').textContent;

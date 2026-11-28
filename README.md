@@ -69,6 +69,12 @@ Open **Crate QR label → Add more moulds to print**, select moulds and copy cou
 
 Print actions suggest a PDF filename containing the unique mould numbers and the print date in India, for example `Mould-QR_1423_1403_2026-11-15.pdf`. The browser uses the temporary print document title for its Save as PDF filename; the normal app title is restored after printing or cancellation. Very long batches abbreviate the remaining moulds as `plus-N` to keep the filename within common filesystem limits.
 
+## Turnpart handover proof
+
+When every part entry is explicitly ready to assemble, **Handover turnparts** appears on the mould details. Confirm handover, enter the receiving Die maker and the person handing over, and confirm physical self-review. The proof preview includes the full mould identifier, B.O.M. date, current handover date in India, both names, and a turnparts-only handover and receipt statement. The Die maker opens **Ready to sign?**, draws on the signature pad with a finger, stylus, or mouse, and accepts the signature before **Save signed PDF** becomes available. Clear and re-sign are supported. The PDF is A4 and downloads with a name such as `1420BAEM turnpart handover proof.pdf`; the browser/device controls its final save location.
+
+Handover needs a recent successful online sheet fetch. Changed part names, quantities, materials, or readiness invalidate an open proof; a new day's date requires preparing and signing again. Readiness does not replace the person's required self-review. Names and signatures stay in memory during the flow and are included only in the locally downloaded PDF. They are cleared on closing the dialog, are not uploaded or written to the sheet, and there is no shared handover register or automatic dispatched-status change.
+
 ## Install and use offline
 
 - **Android / Chrome or Edge:** use **Install app** or the browser's install menu.
@@ -90,3 +96,5 @@ Summary counts represent part entries, not summed quantities. In-process and to-
 ## Dependencies and assets
 
 QR generation runs on the device using qrcode-generator 1.4.4 (MIT, Kazuhiko Arase); the license notice is retained in `dist/qrcode.js`. Icons are local. System fonts avoid external font requests. No job snapshots, credentials, or tokens are committed.
+
+PDF creation runs on the device using pdf-lib 1.17.1 (MIT), vendored with its license in `dist/vendor/`. The letter and actual drawn signature are rendered into the PDF locally, including browser-supported Unicode names.
